@@ -2,17 +2,18 @@ import express from 'express'
 import db from "../conn.js"
 import { ObjectId } from "mongodb"
 
-export const getItems = async(req,res) => {
+export const getEstates = async(req,res) => {
 	try{    
-	   let collection = await db.collection("items")
-	   let category = req.query.category
-	   let type = req.query.type
+	   let collection = await db.collection("estates")
+	   //~ let category = req.query.category
+	   let location = req.query.location
 	   let search = req.query.search
-	   let sort = req.query.sort==='true'?'true':''
-	   //console.log(sort)
+	 //console.log(search)
+	   //~ let sort = req.query.sort==='true'?'true':''
        let page = req.query.page ? req.query.page : 1;
        let limit = req.query.limit ? req.query.limit : 4;
        let skip = (page - 1) * limit
+     //console.log(category, type, search, sort, page, limit, skip)
        let result
        
        if(!search||(search && !search.length))result =
@@ -20,16 +21,16 @@ export const getItems = async(req,res) => {
   
    {$facet: {
     'data':[
-      {$match: category?{category: `${category}`}:{}},
-	  {$match: type?{type: `${type}`}:{}},
-	  {$sort: sort?{price: 1}:{price: -1}},  
+      //~ {$match: category?{category: `${category}`}:{}},
+	  {$match: location?{location: `${location}`}:{}},
+	  //~ {$sort: sort?{price: 1}:{price: -1}},  
       {$skip: parseInt(`${skip}`)},
       {$limit: parseInt(`${limit}`)},							
 		    ],
 		    
     'calculate':[
-      {$match: category?{category: `${category}`}:{}},
-      {$match: type?{type: `${type}`}:{}},
+      //~ {$match: category?{category: `${category}`}:{}},
+      {$match: location?{location: `${type}`}:{}},
       {$count: 'count'}
                ]
              }},
@@ -65,9 +66,9 @@ export const getItems = async(req,res) => {
 	}
    }
 
-export const getItem = async(req, res) => {
+export const getEstate = async(req, res) => {
 	try{
-		let collection = await db.collection("items")
+		let collection = await db.collection("estates")
 		let query = {_id: new ObjectId(req.params.id)}
 	//console.log(query)
 		const item = await collection.findOne(query)
@@ -75,12 +76,13 @@ export const getItem = async(req, res) => {
 	}catch(error){res.status(404).json({message: error.message})}
 }
 
-export const createItem = async(req,res)=> {
+export const createEstate = async(req,res)=> {
       try{
     let item = req.body
-    let collection = await db.collection("items")
-	const newItem = {...item, 
-		             creator: req.userId, 
+    console.log(req.userName)
+    let collection = await db.collection("estates")
+	const newItem = {...item,
+		             owner: req.userName, 
 		             date: new Date().toISOString()}
 	let result = await collection.insertOne(newItem)
 	//console.log(result)	  
@@ -89,12 +91,13 @@ export const createItem = async(req,res)=> {
 		res.status(409).json({message: error.message})
 	}
 }
-export const updateItem = async(req, res)=> {
+export const updateEstate = async(req, res)=> {
    try{
     const query = { _id: new ObjectId(req.params.id) }
     const {_id, ...rest} = req.body
-    const updates = {$set:{...rest, date: new Date().toISOString()}}
-    let collection = await db.collection("items")
+    const updates = {$set:{...rest, owner: req.userName, 
+		                      date: new Date().toISOString()}}
+    let collection = await db.collection("estates")
     const item = await collection.findOne(query)
 	
     if(!item)
@@ -107,11 +110,11 @@ export const updateItem = async(req, res)=> {
 		res.status(409).json({message: error.message})
 	}}
 
-export const deleteItem = async(req,res)=> {
+export const deleteEstate = async(req,res)=> {
   try{
     const query = { _id: new ObjectId(req.params.id) };
 
-    const collection = db.collection("items")
+    const collection = db.collection("estates")
     const item = await collection.findOne(query)
     
 	if(!item)
