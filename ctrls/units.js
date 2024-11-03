@@ -5,7 +5,7 @@ import { ObjectId } from "mongodb"
 export const getEstateUnits = async(req,res) => {
 	try{    
 	   let collection = await db.collection("units")
-	   let estateID = req.params.id
+	   let estateID = req.params.estateID
 	   //~ let category = req.query.category
 	   //~ let location = req.query.location
 	   //~ let search = req.query.search
@@ -70,7 +70,7 @@ export const getEstateUnits = async(req,res) => {
 export const getUnit = async(req, res) => {
 	try{
 		let collection = await db.collection("units")
-		let query = {_id: new ObjectId(req.params.id)}
+		let query = {_id: new ObjectId(req.params.unitID)}
 	//console.log(query)
 		const unit = await collection.findOne(query)
 		res.send(unit).status(200)
@@ -80,8 +80,8 @@ export const getUnit = async(req, res) => {
 export const createUnit = async(req,res)=> {
       try{
     let unit = req.body
-    let estateID = req.params.id
-    console.log(req.userName)
+    let estateID = req.params.estateID
+    //~ console.log(req.userName)
     let collection = await db.collection("units")
 	const newUnit = {...unit,
 		             estateID: estateID, 
@@ -95,7 +95,7 @@ export const createUnit = async(req,res)=> {
 }
 export const updateUnit = async(req, res)=> {
    try{
-    const query = { _id: new ObjectId(req.params.id) }
+    const query = { _id: new ObjectId(req.params.unitID) }
     const {_id, ...rest} = req.body
     const updates = {$set:{...rest, date: new Date().toISOString()}}
     let collection = await db.collection("units")
@@ -113,7 +113,7 @@ export const updateUnit = async(req, res)=> {
 
 export const deleteUnit = async(req,res)=> {
   try{
-    const query = { _id: new ObjectId(req.params.id) };
+    const query = { _id: new ObjectId(req.params.unitID) };
 
     const collection = db.collection("units")
     const unit = await collection.findOne(query)

@@ -4,6 +4,7 @@ import cors from 'cors'
 
 import estateRoutes from './routes/estates.js'
 import userRoutes from './routes/user.js'
+import unitRoutes from './routes/units.js'
 
 const app = express()
 
@@ -11,6 +12,7 @@ const app = express()
 app.use(bodyParser.json({limit: '50mb'}))
 app.use(cors())
 
+app.use('/units', unitRoutes)
 app.use('/estates', estateRoutes)
 app.use('/user', userRoutes)
 
