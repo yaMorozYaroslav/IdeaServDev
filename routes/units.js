@@ -1,5 +1,5 @@
 import express from 'express'
-import {getEstateUnits, getUnit, createUnit, 
+import {getEstateUnits, getEmptyUnits, getUnit, createUnit, 
 	             updateUnit, deleteUnit} from '../ctrls/units.js'
 
 const router = express.Router()
@@ -7,6 +7,7 @@ import {auth} from '../middl/auth.js'
 import {roleAuth} from '../middl/auth.js'
 
 router.get('/:estateID', getEstateUnits)
+router.get('/all/empty', getEmptyUnits)
 //~ router.get('/single/:unitID', getUnit)
 //~ router.post('/', auth, createEstate)
 router.post('/:estateID', createUnit)

@@ -2,28 +2,59 @@ import express from 'express'
 import db from "../conn.js"
 import { ObjectId } from "mongodb"
 
-export const getEstateUnits = async(req,res) => {
+export const getEmptyUnits = async(req, res) => {
 	try{    
 	   let collection = await db.collection("units")
-	   let estateID = req.params.estateID
-	   //~ let category = req.query.category
-	   //~ let location = req.query.location
-	   //~ let search = req.query.search
-	 //console.log(search)
-	   //~ let sort = req.query.sort==='true'?'true':''
+	   
        let page = req.query.page ? req.query.page : 1;
        let limit = req.query.limit ? req.query.limit : 4;
        let skip = (page - 1) * limit
-     //console.log(category, type, search, sort, page, limit, skip)
-     //~ if(!search||(search && !search.length))
-     //~ result =
+    
        let result = await collection.aggregate([
                                  
   
    {$facet: {
     'data':[
       //~ {$match: category?{category: `${category}`}:{}},
-	  {$match: estateID?{estateID: `${estateID}`}:{}},
+	  {$match:{tenant: ''}},
+	  {$group:{_id: "$estateID", quantity: {"$sum":1}}}
+	  //~ {$sort: sort?{price: 1}:{price: -1}},  
+      //~ {$skip: parseInt(`${skip}`)},
+      //~ {$limit: parseInt(`${limit}`)},							
+		    ],
+		    
+    'calculate':[
+      //~ {$match: category?{category: `${category}`}:{}},
+      {$match: {tenant: ''}},
+      {$count: 'count'}
+               ]
+             }},
+     
+      ]).toArray()
+      
+    
+	 if(!result[0]){res.status(200).json({data:[], message: 'nothing'})
+	 }else{res.status(200).json(result[0])}
+	 
+	}catch(error){
+		res.status(404).json({message: error.message})
+	}
+   }
+export const getEstateUnits = async(req,res) => {
+	try{    
+	   let collection = await db.collection("units")
+	   let estateID = req.params.estateID
+	   
+       let page = req.query.page ? req.query.page : 1;
+       let limit = req.query.limit ? req.query.limit : 4;
+       let skip = (page - 1) * limit
+    
+       let result = await collection.aggregate([
+                                 
+  
+   {$facet: {
+    'data':[
+	  {$match: {estateID: `${estateID}`}},
 	  //~ {$sort: sort?{price: 1}:{price: -1}},  
       {$skip: parseInt(`${skip}`)},
       {$limit: parseInt(`${limit}`)},							
@@ -31,15 +62,15 @@ export const getEstateUnits = async(req,res) => {
 		    
     'calculate':[
       //~ {$match: category?{category: `${category}`}:{}},
-      {$match: estateID?{estateID: `${estateID}`}:{}},
+      {$match: {estateID: `${estateID}`}},
       {$count: 'count'}
                ]
              }},
      {$unwind: '$calculate'},
      {$addFields: { totalPages:{ $ceil: {
-           $divide: ['$calculate.count'||0, Number(`${limit}`)]
-          }},  
-          currPage: Number(`${page}`)}}
+                       $divide: ['$calculate.count'||0, 
+                                             Number(`${limit}`)] }},        
+                    currPage: Number(`${page}`)}}
       ]).toArray()
       
      //~ if(search){result = await collection.aggregate([
@@ -81,13 +112,14 @@ export const createUnit = async(req,res)=> {
       try{
     let unit = req.body
     let estateID = req.params.estateID
-    //~ console.log(req.userName)
+   
     let collection = await db.collection("units")
 	const newUnit = {...unit,
+		             tenant: '',
 		             estateID: estateID, 
 		             date: new Date().toISOString()}
 	let result = await collection.insertOne(newUnit)
-	//console.log(result)	  
+	console.log(newUnit)	  
 		res.send(newUnit).status(204)
 	}catch(error){
 		res.status(409).json({message: error.message})
