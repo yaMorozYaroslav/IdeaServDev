@@ -12,6 +12,6 @@ router.get('/:id', getEstate)
 router.post('/', auth, createEstate)
 //~ router.patch('/:id', auth, roleAuth, updateEstate)
 router.patch('/:id', auth, updateEstate)
-router.delete('/:id', auth, deleteEstate)
+router.delete('/:id', deleteEstate)
 
 export default router

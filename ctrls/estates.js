@@ -83,7 +83,8 @@ export const createEstate = async(req,res)=> {
     let collection = await db.collection("estates")
 	const newItem = {...item,
 		             owner: req.userName, 
-		             date: new Date().toISOString()}
+		             //~ date: new Date().toISOString()
+		             }
 	let result = await collection.insertOne(newItem)
 	//console.log(result)	  
 		res.send(newItem).status(204)
@@ -95,8 +96,10 @@ export const updateEstate = async(req, res)=> {
    try{
     const query = { _id: new ObjectId(req.params.id) }
     const {_id, ...rest} = req.body
-    const updates = {$set:{...rest, owner: req.userName, 
-		                      date: new Date().toISOString()}}
+    const updates = {$set:{...rest
+		                      //~ ...rest, owner: req.userName, 
+		                      //~ date: new Date().toISOString()
+		                      }}
     let collection = await db.collection("estates")
     const item = await collection.findOne(query)
 	

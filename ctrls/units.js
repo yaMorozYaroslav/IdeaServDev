@@ -115,9 +115,11 @@ export const createUnit = async(req,res)=> {
    
     let collection = await db.collection("units")
 	const newUnit = {...unit,
-		             tenant: '',
+		             rentReqs: [],
+		             stayReqs: [],
 		             estateID: estateID, 
-		             date: new Date().toISOString()}
+		             //~ date: new Date().toISOString()
+		             }
 	let result = await collection.insertOne(newUnit)
 	console.log(newUnit)	  
 		res.send(newUnit).status(204)
