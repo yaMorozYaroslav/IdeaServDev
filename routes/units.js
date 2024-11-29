@@ -8,7 +8,7 @@ import {roleAuth} from '../middl/auth.js'
 
 router.get('/:estateID', getEstateUnits)
 router.get('/all/empty', getEmptyUnits)
-//~ router.get('/single/:unitID', getUnit)
+router.get('/single/:unitID', getUnit)
 //~ router.post('/', auth, createEstate)
 router.post('/:estateID', auth, createUnit)
 //~ router.patch('/:id', auth, roleAuth, updateEstate)

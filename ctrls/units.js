@@ -89,13 +89,14 @@ export const getEstateUnits = async(req,res) => {
                       //~ currPage: Number(`${page}`)}}                  
                      //~ ]).toArray()
                     //~ }
+                   
     // console.log(!result[0].calculate[0])
 	 if(!result[0]){res.status(200).json({data:[], message: 'nothing'})
 	 }else{res.status(200).json(result[0])}
 	 
 	}catch(error){
 		res.status(404).json({message: error.message})
-	}
+	} 
    }
 
 export const getUnit = async(req, res) => {
@@ -115,6 +116,7 @@ export const createUnit = async(req,res)=> {
    
     let collection = await db.collection("units")
 	const newUnit = {...unit,
+		             tenant: '',
 		             rentReqs: [],
 		             stayReqs: [],
 		             estateID: estateID, 

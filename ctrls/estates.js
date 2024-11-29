@@ -72,6 +72,7 @@ export const getEstate = async(req, res) => {
 		let query = {_id: new ObjectId(req.params.id)}
 	//console.log(query)
 		const item = await collection.findOne(query)
+		
 		res.send(item).status(200)
 	}catch(error){res.status(404).json({message: error.message})}
 }
@@ -79,14 +80,15 @@ export const getEstate = async(req, res) => {
 export const createEstate = async(req,res)=> {
       try{
     let item = req.body
-    console.log(req.userName)
+    //~ console.log(req.userEmail)
     let collection = await db.collection("estates")
 	const newItem = {...item,
-		             owner: req.userName, 
+		             technician: '',
+		             owner: req.userEmail, 
 		             //~ date: new Date().toISOString()
 		             }
 	let result = await collection.insertOne(newItem)
-	//console.log(result)	  
+	//~ console.log(newItem)	  
 		res.send(newItem).status(204)
 	}catch(error){
 		res.status(409).json({message: error.message})

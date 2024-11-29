@@ -10,19 +10,20 @@ export const auth = async (req, res, next) => {
     const isCustomAuth = token.length < 500;
     //console.log(req.params)
     let decodedData
-
+console.log(jwt.verify(token, secret))
     if (token && isCustomAuth) {      
       decodedData = jwt.verify(token, secret)
 
       req.userId = decodedData?.id
-      req.userName = decodedData.name
+      req.userEmail = decodedData.email
+      
      
     } else {
       decodedData = jwt.decode(token)
 
       req.userId = decodedData?.sub
     }    
-    console.log(decodedData)
+    
     next();
   } catch (error) {
     res.status(409).json({message: error.message})
