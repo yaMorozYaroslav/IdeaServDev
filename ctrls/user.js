@@ -112,7 +112,8 @@ export const confirmEmail = async(req,res)=> {
 	
     let updatedUser = await collection.findOne(query)
      console.log(updatedUser)              
-    res.status(200).json(updatedUser)
+    res.status(200).json({text: 'You had confirmed your email address successfully',
+                          user: updatedUser})
 	}catch(error){
 		res.status(500).json({message: error})
 	}}

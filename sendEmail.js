@@ -12,7 +12,7 @@ const transporter = nodemailer.createTransport({
 });
 export const sendEmail = async(req,res) => {
  let {user_email, user_id} = req.body
- console.log(req)
+ //~ console.log(req)
 const mailOptions = {
   from: "unreal@nomail.one",
   //~ from: "ya.moroz.yaroslav@gmail.com",
@@ -23,7 +23,7 @@ const mailOptions = {
         //~ ' method: ' + d.delivery_method + ', area: ' + d.user_area +
         //~ ' items: ' + d.items
   text: user_id?`Please confirm your email address by visiting 
-                      http://localhost:5000/user/confirmation/${user_id}`
+                      https://hesen-properties-3eefa0d80ae7.herokuapp.com/user/confirmation/${user_id}`
                :`You got a rent request from ${user_email},${user_phone}`
    } 
   transporter.sendMail(mailOptions, (error, info) => {
