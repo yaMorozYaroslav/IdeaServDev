@@ -8,9 +8,12 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: '/google/google/callback',
+      callbackURL: 'https://inter-idea-ad80abcdf0d6.herokuapp.com/google/google/callback',
     },
-    googleCtrl.googleCallback
+    (accessToken, refreshToken, profile, done) => {
+      // You can save the user profile or handle authentication logic here
+      return done(null, profile);
+    }
   )
 );
 
