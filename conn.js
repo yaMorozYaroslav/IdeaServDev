@@ -14,6 +14,6 @@ try {
   console.error(e)
 }
 
-const db = conn.db("PropertyDatabase")
+const db = conn.db("IdeaDatabase")
 
 export default db
