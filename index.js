@@ -13,7 +13,8 @@ const app = express();
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(cookieParser());
 app.use(cors({
-  origin: 'http://localhost:3000', // Change this if frontend runs on a different port
+  //~ origin: 'http://localhost:3000',
+  origin: "*",
   credentials: true
 }));
 
