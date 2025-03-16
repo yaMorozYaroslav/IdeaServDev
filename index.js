@@ -20,6 +20,8 @@ app.use(cors({
   credentials: true
 }));
 
+app.set("trust proxy", 1);
+
 app.use('/google', googleRoutes);
 app.use('/questions', questionRoutes);
 
