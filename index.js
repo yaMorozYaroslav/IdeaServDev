@@ -16,7 +16,7 @@ app.use(cors({
   origin: '*',
   //~ origin: ["https://idea-sphere-50bb3c5bc07b.herokuapp.com",
            //~ "http://localhost:3000"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  
   credentials: true
 }));
 

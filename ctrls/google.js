@@ -11,7 +11,7 @@ export async function handleOAuthCallback(req, res) {
   }
 
   try {
-    const REDIRECT_URI = process.env.REDIRECT_URI || "https://idea-sphere-50bb3c5bc07b.herokuapp.com/google/oauth/callback";
+    const REDIRECT_URI = "https://idea-sphere-50bb3c5bc07b.herokuapp.com/google/oauth/callback";
 
     const tokenResponse = await axios.post("https://oauth2.googleapis.com/token", {
       code,
@@ -90,7 +90,7 @@ export async function handleOAuthCallback(req, res) {
     });
 
     // ✅ Redirect to frontend
-    res.redirect("https://your-frontend-url.com"); // Update with your frontend URL
+    res.redirect("http://localhost:3000"); // Update with your frontend URL
   } catch (error) {
     console.error("❌ Error during OAuth callback:", error.response ? error.response.data : error.message);
     res.status(500).send("Authentication failed");
