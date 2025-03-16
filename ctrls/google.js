@@ -3,6 +3,10 @@ import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import db from '../conn.js';
 
+import axios from 'axios';
+import jwt from 'jsonwebtoken';
+import db from '../conn.js';
+
 export async function handleOAuthCallback(req, res) {
   const code = req.query.code;
 
@@ -11,11 +15,13 @@ export async function handleOAuthCallback(req, res) {
   }
 
   try {
+    const REDIRECT_URI = process.env.REDIRECT_URI || "https://idea-sphere-50bb3c5bc07b.herokuapp.com/google/oauth/callback";
+
     const tokenResponse = await axios.post("https://oauth2.googleapis.com/token", {
       code,
       client_id: process.env.GOOGLE_CLIENT_ID,
       client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      redirect_uri: "https://idea-sphere-50bb3c5bc07b.herokuapp.com/google/oauth/callback",
+      redirect_uri: REDIRECT_URI,
       grant_type: "authorization_code",
     });
 
@@ -37,75 +43,60 @@ export async function handleOAuthCallback(req, res) {
 
     let user;
     if (existingUser) {
-      user = existingUser; // ✅ Keep existing user data
+      user = existingUser;
     } else {
       const newUser = {
         googleId: profile.id,
         email: profile.email,
         name: profile.name,
         picture: profile.picture,
-        status: "user", // ✅ Default status is "user"
+        status: "user", // Default role
         createdAt: new Date(),
       };
       const result = await usersCollection.insertOne(newUser);
-      user = { ...newUser, _id: result.insertedId }; // ✅ Ensure user object has the correct ID
+      user = { ...newUser, _id: result.insertedId };
     }
 
-    // Generate JWT tokens
+    // Securely sign JWT tokens
+    const JWT_SECRET = process.env.JWT_SECRET || "test";
+
     const accessToken = jwt.sign(
       {
         userId: user.googleId,
         email: user.email,
         name: user.name,
         picture: user.picture,
-        status: user.status, // ✅ Include status in JWT
+        status: user.status,
       },
-      "test",
+      JWT_SECRET,
       { expiresIn: "15m" }
     );
 
     const refreshToken = jwt.sign(
       { userId: user.googleId, email: user.email },
-      "test",
+      JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    // Set cookies with user data
+    // ✅ Set `httpOnly` cookies (NOT accessible via JavaScript)
     res.cookie("access_token", accessToken, {
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
+      httpOnly: true, // ✅ Only accessible on the server
+      secure: true, // ✅ Required for HTTPS
+      sameSite: "None", // ✅ Required for cross-origin cookies
       maxAge: 15 * 60 * 1000, // 15 minutes
     });
 
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
-      secure: false,
-      sameSite: "lax",
+      secure: true,
+      sameSite: "None",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
-    res.cookie(
-      "user_data",
-      JSON.stringify({
-        id: user.googleId,
-        name: user.name,
-        email: user.email,
-        picture: user.picture,
-        status: user.status, // ✅ Include status in cookie
-      }),
-      {
-        httpOnly: true,
-        secure: false,
-        sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      }
-    );
-
-    // Redirect back to frontend with success
-    res.redirect(`http://localhost:3000`);
+    // ✅ Redirect to frontend
+    res.redirect("https://your-frontend-url.com"); // Update with your frontend URL
   } catch (error) {
-    console.error("Error during OAuth callback:", error.response ? error.response.data : error.message);
+    console.error("❌ Error during OAuth callback:", error.response ? error.response.data : error.message);
     res.status(500).send("Authentication failed");
   }
 }
