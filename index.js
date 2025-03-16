@@ -13,9 +13,9 @@ const app = express();
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(cookieParser());
 app.use(cors({
-  //~ origin: 'http://localhost:3000',
-  origin: ["https://idea-sphere-50bb3c5bc07b.herokuapp.com",
-           "http://localhost:3000"],
+  origin: '*',
+  //~ origin: ["https://idea-sphere-50bb3c5bc07b.herokuapp.com",
+           //~ "http://localhost:3000"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
 }));
