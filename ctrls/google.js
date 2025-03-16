@@ -3,10 +3,6 @@ import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import db from '../conn.js';
 
-import axios from 'axios';
-import jwt from 'jsonwebtoken';
-import db from '../conn.js';
-
 export async function handleOAuthCallback(req, res) {
   const code = req.query.code;
 
