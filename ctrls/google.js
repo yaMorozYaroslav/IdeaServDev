@@ -15,7 +15,7 @@ export async function handleOAuthCallback(req, res) {
       code,
       client_id: process.env.GOOGLE_CLIENT_ID,
       client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      redirect_uri: "http://localhost:5000/google/oauth/callback",
+      redirect_uri: "https://idea-sphere-50bb3c5bc07b.herokuapp.com/google/oauth/callback",
       grant_type: "authorization_code",
     });
 
