@@ -121,9 +121,10 @@ export function getUserData(req, res) {
 }
 
 export function logoutUser(req, res) {
-  res.clearCookie('access_token', { httpOnly: true, sameSite: 'Strict' });
-  res.clearCookie('refresh_token', { httpOnly: true, sameSite: 'Strict' });
-  res.clearCookie('user_data', { httpOnly: false, sameSite: 'Strict' });
+  res.clearCookie('access_token', { httpOnly: true, sameSite: 'None' });
+  res.clearCookie('refresh_token', { httpOnly: true, sameSite: 'None' });
+  res.clearCookie('user_data', { httpOnly: false, sameSite: 'None' });
+  //~ res.clearCookie('user_data', { httpOnly: false, sameSite: 'Strict' });
 
   res.status(200).json({ message: 'Logged out successfully' }); // ✅ Confirmation response
 }
