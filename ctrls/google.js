@@ -100,7 +100,7 @@ export async function handleOAuthCallback(req, res) {
 
 export function getUserData(req, res) {
   const accessToken = req.cookies?.access_token;
-
+  console.log(accessToken)
   if (!accessToken) {
     return res.status(401).json({ message: "Not authenticated" });
   }
