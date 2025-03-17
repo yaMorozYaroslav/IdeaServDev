@@ -3,6 +3,10 @@ import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import db from '../conn.js';
 
+import axios from 'axios';
+import jwt from 'jsonwebtoken';
+import db from '../conn.js';
+
 export async function handleOAuthCallback(req, res) {
   const code = req.query.code;
 
@@ -74,17 +78,32 @@ export async function handleOAuthCallback(req, res) {
       { expiresIn: "7d" }
     );
 
-    // ✅ Set `httpOnly` cookies (NOT accessible via JavaScript)
+    // ✅ Set `access_token` as HTTP-only for security
     res.cookie("access_token", accessToken, {
-      httpOnly: true, // ✅ Only accessible on the server
-      secure: true, // ✅ Required for HTTPS
-      sameSite: "None", // ✅ Required for cross-origin cookies
+      httpOnly: true,  // ✅ Cannot be accessed by JavaScript
+      secure: true,    // ✅ Only sent over HTTPS
+      sameSite: "None",
       maxAge: 15 * 60 * 1000, // 15 minutes
     });
 
+    // ✅ Set `refresh_token` as HTTP-only for security
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
       secure: true,
+      sameSite: "None",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    // ✅ Set `user_data` as HTTPS-only but accessible by JavaScript
+    res.cookie("user_data", JSON.stringify({
+      id: user.googleId,
+      name: user.name,
+      email: user.email,
+      picture: user.picture,
+      status: user.status,
+    }), {
+      httpOnly: false,  // ❌ Accessible by JavaScript
+      secure: true,     // ✅ Only sent over HTTPS
       sameSite: "None",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
@@ -97,10 +116,9 @@ export async function handleOAuthCallback(req, res) {
   }
 }
 
-
 export function getUserData(req, res) {
   const accessToken = req.cookies?.access_token;
-  console.log(accessToken)
+  //~ console.log(accessToken)
   if (!accessToken) {
     return res.status(401).json({ message: "Not authenticated" });
   }
