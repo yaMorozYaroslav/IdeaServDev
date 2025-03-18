@@ -99,8 +99,9 @@ export async function handleOAuthCallback(req, res) {
       status: user.status,
     }), {
       httpOnly: false,  // ❌ Accessible by JavaScript
-      secure: false,     // ✅ Only sent over HTTPS
-      sameSite: "Lax",
+      secure: true,     // ✅ Only sent over HTTPS
+      sameSite: "None",
+      domain: "localhost",
       path: "/",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
