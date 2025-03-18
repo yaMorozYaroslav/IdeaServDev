@@ -101,7 +101,7 @@ export async function handleOAuthCallback(req, res) {
       httpOnly: false,  // ❌ Accessible by JavaScript
       secure: true,     // ✅ Only sent over HTTPS
       sameSite: "None",
-      domain: ["http://192.168.0.54:3000", "https://idea-sphere-50bb3c5bc07b.herokuapp.com"],
+      //~ domain: ["http://192.168.0.54:3000", "https://idea-sphere-50bb3c5bc07b.herokuapp.com"],
       path: "/",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
