@@ -5,9 +5,9 @@ import db from '../conn.js';
 
 export async function handleOAuthCallback(req, res) {
   const code = req.query.code;
-
   if (!code) {
-    return res.status(400).send("Authorization code is missing");
+    console.error("❌ OAuth Error: Missing authorization code");
+    return res.status(400).json({ message: "Authorization code is missing" });
   }
 
   try {
@@ -26,44 +26,33 @@ export async function handleOAuthCallback(req, res) {
     // Fetch user profile
     const profileResponse = await axios.get(
       "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
-      {
-        headers: { Authorization: `Bearer ${tokens.access_token}` },
-      }
+      { headers: { Authorization: `Bearer ${tokens.access_token}` } }
     );
 
     const profile = profileResponse.data;
 
     // Save user to MongoDB
     const usersCollection = db.collection("users");
-    const existingUser = await usersCollection.findOne({ email: profile.email });
+    let user = await usersCollection.findOne({ email: profile.email });
 
-    let user;
-    if (existingUser) {
-      user = existingUser;
-    } else {
+    if (!user) {
       const newUser = {
         googleId: profile.id,
         email: profile.email,
         name: profile.name,
         picture: profile.picture,
-        status: "user", // Default role
+        status: "user",
         createdAt: new Date(),
       };
       const result = await usersCollection.insertOne(newUser);
       user = { ...newUser, _id: result.insertedId };
     }
 
-    // Securely sign JWT tokens
+    // Sign JWT tokens
     const JWT_SECRET = process.env.JWT_SECRET || "test";
 
     const accessToken = jwt.sign(
-      {
-        userId: user.googleId,
-        email: user.email,
-        name: user.name,
-        picture: user.picture,
-        status: user.status,
-      },
+      { userId: user.googleId, email: user.email, name: user.name, picture: user.picture, status: user.status },
       JWT_SECRET,
       { expiresIn: "15m" }
     );
@@ -74,23 +63,25 @@ export async function handleOAuthCallback(req, res) {
       { expiresIn: "7d" }
     );
 
-    // ✅ Set `access_token` as HTTP-only for security
+    // ✅ Set cookies
     res.cookie("access_token", accessToken, {
-      httpOnly: true,  // ✅ Cannot be accessed by JavaScript
-      secure: true,    // ✅ Only sent over HTTPS
+      httpOnly: true,
+      secure: true,
       sameSite: "None",
-      maxAge: 15 * 60 * 1000, // 15 minutes
+      domain: "localhost", // ✅ Important for local SSR
+      path: "/",
+      maxAge: 15 * 60 * 1000,
     });
 
-    // ✅ Set `refresh_token` as HTTP-only for security
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
       secure: true,
       sameSite: "None",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      domain: "localhost",
+      path: "/",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    // ✅ Set `user_data` as HTTPS-only but accessible by JavaScript
     res.cookie("user_data", JSON.stringify({
       id: user.googleId,
       name: user.name,
@@ -98,21 +89,32 @@ export async function handleOAuthCallback(req, res) {
       picture: user.picture,
       status: user.status,
     }), {
-      httpOnly: false,  // ❌ Accessible by JavaScript
-      secure: true,     // ✅ Only sent over HTTPS
+      httpOnly: false, // ✅ Accessible by JavaScript
+      secure: true,
       sameSite: "None",
-      //~ domain: ["http://192.168.0.54:3000", "https://idea-sphere-50bb3c5bc07b.herokuapp.com"],
+      domain: "localhost",
       path: "/",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    // ✅ Redirect to frontend
-    res.redirect("http://localhost:3000"); // Update with your frontend URL
+    // ✅ Return JSON (Frontend will handle redirect)
+    res.status(200).json({
+      message: "Login successful",
+      user: {
+        id: user.googleId,
+        name: user.name,
+        email: user.email,
+        picture: user.picture,
+        status: user.status,
+      },
+    });
+
   } catch (error) {
-    console.error("❌ Error during OAuth callback:", error.response ? error.response.data : error.message);
-    res.status(500).send("Authentication failed");
+    console.error("❌ Error during OAuth callback:", error.response?.data || error.message);
+    res.status(500).json({ message: "Authentication failed", error: error.message });
   }
 }
+
 
 export function getUserData(req, res) {
   const accessToken = req.cookies?.access_token;
