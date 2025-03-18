@@ -85,7 +85,7 @@ export async function handleOAuthCallback(req, res) {
     // ✅ Set `refresh_token` as HTTP-only for security
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
-      secure: true,
+      secure: false,
       sameSite: "None",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
