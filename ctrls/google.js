@@ -6,13 +6,13 @@ import db from '../conn.js';
 export async function handleOAuthCallback(req, res) {
   const code = req.query.code;
   if (!code) {
-    console.error("❌ OAuth Error: Missing authorization code");
     return res.status(400).json({ message: "Authorization code is missing" });
   }
 
   try {
     const REDIRECT_URI = "https://idea-sphere-50bb3c5bc07b.herokuapp.com/google/oauth/callback";
 
+    // 🔍 Exchange OAuth code for tokens
     const tokenResponse = await axios.post("https://oauth2.googleapis.com/token", {
       code,
       client_id: process.env.GOOGLE_CLIENT_ID,
@@ -23,7 +23,7 @@ export async function handleOAuthCallback(req, res) {
 
     const tokens = tokenResponse.data;
 
-    // Fetch user profile
+    // 🔍 Fetch user profile from Google
     const profileResponse = await axios.get(
       "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
       { headers: { Authorization: `Bearer ${tokens.access_token}` } }
@@ -31,11 +31,12 @@ export async function handleOAuthCallback(req, res) {
 
     const profile = profileResponse.data;
 
-    // Save user to MongoDB
+    // 🔍 Save user to MongoDB
     const usersCollection = db.collection("users");
     let user = await usersCollection.findOne({ email: profile.email });
 
     if (!user) {
+      console.log("🔍 Creating new user...");
       const newUser = {
         googleId: profile.id,
         email: profile.email,
@@ -46,68 +47,38 @@ export async function handleOAuthCallback(req, res) {
       };
       const result = await usersCollection.insertOne(newUser);
       user = { ...newUser, _id: result.insertedId };
+      console.log("✅ New user created:", user);
     }
 
-    // Sign JWT tokens
+    // 🔍 Generate JWT access token
     const JWT_SECRET = process.env.JWT_SECRET || "test";
-
     const accessToken = jwt.sign(
       { userId: user.googleId, email: user.email, name: user.name, picture: user.picture, status: user.status },
       JWT_SECRET,
       { expiresIn: "15m" }
     );
 
+    console.log("✅ Access token generated:", accessToken);
+
+    // ✅ Store refresh token as HTTP-only cookie (not accessible in JavaScript)
     const refreshToken = jwt.sign(
       { userId: user.googleId, email: user.email },
       JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    // ✅ Set cookies
-    res.cookie("access_token", accessToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "None",
-      domain: "localhost", // ✅ Important for local SSR
-      path: "/",
-      maxAge: 15 * 60 * 1000,
-    });
-
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
       secure: true,
       sameSite: "None",
-      domain: "localhost",
       path: "/",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
 
-    res.cookie("user_data", JSON.stringify({
-      id: user.googleId,
-      name: user.name,
-      email: user.email,
-      picture: user.picture,
-      status: user.status,
-    }), {
-      httpOnly: false, // ✅ Accessible by JavaScript
-      secure: true,
-      sameSite: "None",
-      domain: "localhost",
-      path: "/",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    console.log("✅ Cookies set, redirecting to frontend...");
 
-    // ✅ Return JSON (Frontend will handle redirect)
-    res.status(200).json({
-      message: "Login successful",
-      user: {
-        id: user.googleId,
-        name: user.name,
-        email: user.email,
-        picture: user.picture,
-        status: user.status,
-      },
-    });
+    // ✅ Redirect with access_token ONLY
+    res.redirect(`http://localhost:3000?access_token=${accessToken}`);
 
   } catch (error) {
     console.error("❌ Error during OAuth callback:", error.response?.data || error.message);
