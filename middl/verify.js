@@ -1,65 +1,68 @@
 import db from "../conn.js";
 import { ObjectId } from "mongodb";
 
-//~ export async function verifyToken(req, res, next) {
-  //~ const accessToken = req.cookies?.access_token;
-  //~ const refreshToken = req.cookies?.refresh_token;
+export async function verifyToken(req, res, next) {
+  const accessToken = req.cookies?.access_token;
+  const refreshToken = req.cookies?.refresh_token;
 
-  //~ if (!accessToken && !refreshToken) {
-    //~ return res.status(401).json({ message: "Not authenticated" });
-  //~ }
+  if (!accessToken && !refreshToken) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
 
-  //~ try {
-    //~ // Verify access token with Google OAuth
-    //~ await axios.get("https://www.googleapis.com/oauth2/v1/tokeninfo", {
-      //~ params: { access_token: accessToken },
-    //~ });
+  try {
+    // 🔍 Verify access token
+    await axios.get("https://www.googleapis.com/oauth2/v1/tokeninfo", {
+      params: { access_token: accessToken },
+    });
 
-    //~ const user = jwt.verify(accessToken, "test");
+    const user = jwt.verify(accessToken, "test");
 
-    //~ req.user = {
-      //~ id: user.userId,
-      //~ email: user.email,
-      //~ status: user.status || "user", // ✅ Default status is "user"
-      //~ ip: req.headers["x-forwarded-for"] || req.connection.remoteAddress, // ✅ Store user IP
-    //~ };
+    req.user = {
+      id: user.userId,
+      email: user.email,
+      status: user.status || "user",
+      ip: req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+    };
 
-    //~ return next();
-  //~ } catch (error) {
-    //~ if (refreshToken) {
-      //~ try {
-        //~ const decodedRefresh = jwt.verify(refreshToken, "test");
+    return next();
+  } catch (error) {
+    if (refreshToken) {
+      try {
+        const decodedRefresh = jwt.verify(refreshToken, "test");
 
-        //~ // Generate new tokens
-        //~ const newAccessToken = jwt.sign(
-          //~ { userId: decodedRefresh.userId, email: decodedRefresh.email, status: decodedRefresh.status || "user" },
-          //~ "test",
-          //~ { expiresIn: "15m" }
-        //~ );
+        // 🔥 Generate new access token
+        const newAccessToken = jwt.sign(
+          { userId: decodedRefresh.userId, email: decodedRefresh.email, status: decodedRefresh.status || "user" },
+          "test",
+          { expiresIn: "15m" }
+        );
 
-        //~ res.cookie("access_token", newAccessToken, {
-          //~ httpOnly: true,
-          //~ secure: false,
-          //~ sameSite: "Strict",
-          //~ maxAge: 15 * 60 * 1000,
-        //~ });
+        // ✅ Update cookies with the new access token
+        res.cookie("access_token", newAccessToken, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "None",
+          maxAge: 15 * 60 * 1000,
+        });
 
-        //~ req.user = {
-          //~ id: decodedRefresh.userId,
-          //~ email: decodedRefresh.email,
-          //~ status: decodedRefresh.status || "user",
-          //~ ip: req.headers["x-forwarded-for"] || req.connection.remoteAddress,
-        //~ };
+        req.user = {
+          id: decodedRefresh.userId,
+          email: decodedRefresh.email,
+          status: decodedRefresh.status || "user",
+          ip: req.headers["x-forwarded-for"] || req.connection.remoteAddress,
+        };
 
-        //~ return next();
-      //~ } catch (refreshError) {
-        //~ return res.status(401).json({ message: "Invalid refresh token" });
-      //~ }
-    //~ } else {
-      //~ return res.status(401).json({ message: "Session expired, please log in again" });
-    //~ }
-  //~ }
-//~ }
+        console.log("✅ New access token issued:", newAccessToken);
+        return next();
+      } catch (refreshError) {
+        return res.status(401).json({ message: "Invalid refresh token" });
+      }
+    } else {
+      return res.status(401).json({ message: "Session expired, please log in again" });
+    }
+  }
+}
+
 export async function canDeleteQuest(req, res, next) {
     try {
         const userId = req.body.userId || req.headers["x-user-id"] || null;
