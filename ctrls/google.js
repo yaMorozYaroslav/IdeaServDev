@@ -118,7 +118,7 @@ export function logoutUser(req, res) {
   res.status(200).json({ message: 'Logged out successfully' }); // ✅ Confirmation response
 }
 
-export async function refreshAccessToken(req, res) {
+export async function refreshToken(req, res) {
   const { accessToken } = req.body; // ✅ Get old access token from body
   const refreshToken = req.cookies?.refresh_token;
 
