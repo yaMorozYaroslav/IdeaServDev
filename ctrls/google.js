@@ -88,20 +88,27 @@ export async function handleOAuthCallback(req, res) {
 
 
 export function getUserData(req, res) {
-  const accessToken = req.cookies?.access_token;
-  //~ console.log(accessToken)
+  // Get accessToken from the request body
+  const { accessToken } = req.body;
+  
+  // Get refreshToken from cookies
+  const refreshToken = req.cookies?.refresh_token;
+
   if (!accessToken) {
-    return res.status(401).json({ message: "Not authenticated" });
+    return res.status(401).json({ message: "Access token is required" });
   }
 
   try {
+    // Verify the access token
     const user = jwt.verify(accessToken, "test");
+
     res.json({
       id: user.userId,
       name: user.name,
       email: user.email,
       picture: user.picture,
-      status: user.status, // ✅ Include status
+      status: user.status,
+      refreshToken, // ✅ Returning refreshToken from cookies
     });
   } catch (err) {
     console.error("Invalid token:", err);
@@ -123,7 +130,7 @@ export async function refreshToken(req, res) {
   const refreshToken = req.cookies?.refresh_token;
 
   if (!refreshToken) {
-    return res.status(401).json({ message: accessToken,  });
+    return res.status(401).json({ message: "Not authenticated",  });
   }
 
   try {
@@ -148,14 +155,14 @@ export async function refreshToken(req, res) {
       { expiresIn: "15m" }
     );
 
-    // ✅ Update cookies with new access token
-    res.cookie("access_token", newAccessToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "None",
-      path: "/",
-      maxAge: 15 * 60 * 1000,
-    });
+    //~ // ✅ Update cookies with new access token
+    //~ res.cookie("access_token", newAccessToken, {
+      //~ httpOnly: true,
+      //~ secure: true,
+      //~ sameSite: "None",
+      //~ path: "/",
+      //~ maxAge: 15 * 60 * 1000,
+    //~ });
 
     console.log("✅ New access token issued:", newAccessToken);
 
