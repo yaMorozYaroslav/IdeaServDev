@@ -123,7 +123,7 @@ export async function refreshToken(req, res) {
   const refreshToken = req.cookies?.refresh_token;
 
   if (!refreshToken) {
-    return res.status(401).json({ message: "Not authenticated", accessToken });
+    return res.status(401).json({ message: accessToken,  });
   }
 
   try {
