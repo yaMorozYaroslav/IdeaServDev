@@ -92,7 +92,7 @@ export function getUserData(req, res) {
   const { accessToken } = req.body;
   
   // Get refreshToken from cookies
-  const refreshToken = req.cookies?.refresh_token;
+  const refreshToken = JSON.stringify(req.cookies.refresh_token;)
 
   if (!accessToken) {
     return res.status(401).json({ message: "Access token is required" });
