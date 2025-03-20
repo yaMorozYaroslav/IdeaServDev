@@ -108,7 +108,7 @@ export function getUserData(req, res) {
       email: user.email,
       picture: user.picture,
       status: user.status,
-      refreshToken, // ✅ Returning refreshToken from cookies
+      tokem: accessToken, // ✅ Returning refreshToken from cookies
     });
   } catch (err) {
     console.error("Invalid token:", err);
