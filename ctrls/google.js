@@ -92,7 +92,7 @@ export function getUserData(req, res) {
   const { accessToken } = req.body;
   
   // Get refreshToken from cookies
-  const refreshToken = JSON.stringify(req.cookies.refresh_token;)
+  //~ const refreshToken = JSON.stringify(req.cookies.refresh_token;)
 
   if (!accessToken) {
     return res.status(401).json({ message: "Access token is required" });
@@ -108,7 +108,7 @@ export function getUserData(req, res) {
       email: user.email,
       picture: user.picture,
       status: user.status,
-      accessToken, // ✅ Returning refreshToken from cookies
+      //~ accessToken, // ✅ Returning refreshToken from cookies
     });
   } catch (err) {
     console.error("Invalid token:", err);
