@@ -18,7 +18,7 @@ app.use(cors({
            "http://localhost:3000"],
   
   credentials: true,
-  allowedHeaders: ["Content-Type", "Authorization"]
+  //~ allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
 app.set("trust proxy", 1);
