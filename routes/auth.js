@@ -5,7 +5,7 @@ import { handleOAuthCallback, getUserData,
 const router = express.Router();
 
 router.get('/oauth/callback', handleOAuthCallback);
-router.get('/me', getUserData);
+router.post('/me', getUserData);
 router.post('/logout', logoutUser); // ✅ Added logout route
 router.post('/refresh', refreshToken)
 export default router;
