@@ -77,7 +77,7 @@ export async function handleOAuthCallback(req, res) {
     console.log("✅ Tokens generated, redirecting with tokens...");
 
     // 🚀 Send both tokens in the redirect URL
-    const redirectUrl = res.redirect(`http://localhost:3000/api/store-tokens?access_token=${accessToken}&refresh_token=${refreshToken}`;)
+    const redirectUrl = `http://localhost:3000/api/store-tokens?access_token=${accessToken}&refresh_token=${refreshToken}`;
     res.redirect(redirectUrl);
 
   } catch (error) {
