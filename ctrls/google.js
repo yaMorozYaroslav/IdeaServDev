@@ -50,35 +50,35 @@ export async function handleOAuthCallback(req, res) {
       console.log("✅ New user created:", user);
     }
 
-    // 🔍 Generate JWT access token
+    // 🔐 Generate JWT tokens
     const JWT_SECRET = process.env.JWT_SECRET || "test";
+
     const accessToken = jwt.sign(
-      { userId: user.googleId, email: user.email, name: user.name, picture: user.picture, status: user.status },
+      {
+        userId: user.googleId,
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        status: user.status,
+      },
       JWT_SECRET,
       { expiresIn: "15m" }
     );
 
-    console.log("✅ Access token generated:", accessToken);
-
-    // ✅ Store refresh token as HTTP-only cookie (not accessible in JavaScript)
     const refreshToken = jwt.sign(
-      { userId: user.googleId, email: user.email },
+      {
+        userId: user.googleId,
+        email: user.email,
+      },
       JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-    res.cookie("refresh_token", refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "None",
-      path: "/",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    console.log("✅ Tokens generated, redirecting with tokens...");
 
-    console.log("✅ Cookies set, redirecting to frontend...");
-
-    // ✅ Redirect with access_token ONLY
-    res.redirect(`http://localhost:3000?access_token=${accessToken}`);
+    // 🚀 Send both tokens in the redirect URL
+    const redirectUrl = res.redirect(`http://localhost:3000/api/auth/store-tokens?access_token=${accessToken}&refresh_token=${refreshToken}`;)
+    res.redirect(redirectUrl);
 
   } catch (error) {
     console.error("❌ Error during OAuth callback:", error.response?.data || error.message);
@@ -90,7 +90,6 @@ export async function handleOAuthCallback(req, res) {
 export function getUserData(req, res) {
   // Get accessToken from the request body
   const { accessToken } = req.body;
-  const refreshToken = req.cookies?.refresh_token;
   // Get refreshToken from cookies
   //~ const refreshToken = JSON.stringify(req.cookies.refresh_token;)
 
@@ -107,9 +106,7 @@ export function getUserData(req, res) {
       name: user.name,
       email: user.email,
       picture: user.picture,
-      status: user.status,
-      token: refreshToken||undefined,
-      thing: 'text' // ✅ Returning refreshToken from cookies
+      status: user.status 
     });
   } catch (err) {
     console.error("Invalid token:", err);
