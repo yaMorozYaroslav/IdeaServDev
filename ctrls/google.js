@@ -90,7 +90,7 @@ export async function handleOAuthCallback(req, res) {
 export function getUserData(req, res) {
   // Get accessToken from the request body
   const { accessToken } = req.body;
-  
+  const refreshToken = req.cookies?.refresh_token;
   // Get refreshToken from cookies
   //~ const refreshToken = JSON.stringify(req.cookies.refresh_token;)
 
@@ -108,7 +108,7 @@ export function getUserData(req, res) {
       email: user.email,
       picture: user.picture,
       status: user.status,
-      accessToken, // ✅ Returning refreshToken from cookies
+      token: token, // ✅ Returning refreshToken from cookies
     });
   } catch (err) {
     console.error("Invalid token:", err);
