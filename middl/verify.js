@@ -1,9 +1,6 @@
 import db from "../conn.js";
 import { ObjectId } from "mongodb";
 
-import db from "../conn.js";
-import { ObjectId } from "mongodb";
-
 export async function canDeleteAnswer(req, res, next) {
   try {
     const { questionId, answerId } = req.params;
