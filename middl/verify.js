@@ -56,10 +56,6 @@ export async function canDeleteAnswer(req, res, next) {
   }
 }
 
-
-import db from "../conn.js";
-import { ObjectId } from "mongodb";
-
 export async function canDeleteAnswer(req, res, next) {
   try {
     const { userId } = req.body;
