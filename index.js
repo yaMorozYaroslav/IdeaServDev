@@ -13,9 +13,16 @@ const app = express();
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(cookieParser());
 app.use(cors({
-  origin: 'http://localhost:3000', // Change this if frontend runs on a different port
-  credentials: true
+  //~ origin: '*',
+  origin: ["https://idea-sphere.vercel.app",
+           //~ "https://idea-sphere-50bb3c5bc07b.herokuapp.com",
+           "http://localhost:3000"],
+  
+  credentials: true,
+  //~ allowedHeaders: ["Content-Type", "Authorization"]
 }));
+
+app.set("trust proxy", 1);
 
 app.use('/google', googleRoutes);
 app.use('/questions', questionRoutes);

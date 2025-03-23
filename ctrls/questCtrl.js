@@ -2,33 +2,39 @@ import db from "../conn.js";
 import { ObjectId } from "mongodb";
 
 // Create a new question
-export const createQuestion = async (req, res) => {
-    try {
-        const { title, author } = req.body; // Remove `content` from here
+export async function createQuestion(req, res) {
+  try {
+    let { title } = req.body;
+    let { userId } = req.body; // ✅ Will contain userId if logged in
 
-        if (!title || !author) {
-            return res.status(400).json({ error: "Title and author are required" });
-        }
-
-        const newQuestion = {
-            title,
-            author,
-            likes: [], // Ensure likes field exists
-            anonymousLikes: [],
-            createdAt: new Date(),
-        };
-
-        const result = await db.collection("questions").insertOne(newQuestion);
-
-        console.log("New question created:", result.insertedId);
-
-        res.status(201).json({ _id: result.insertedId, ...newQuestion });
-
-    } catch (error) {
-        console.error("Error creating question:", error.message);
-        res.status(500).json({ error: "Internal server error" });
+    if (!title || title.trim().length === 0) {
+      return res.status(400).json({ message: "Title cannot be empty" });
     }
-};
+
+    // ✅ Assign unique identifier: userId for logged-in users, IP for anonymous users
+    let identifier = userId ? userId : `Anonymous_${req.headers["x-forwarded-for"] || req.connection.remoteAddress}`;
+
+    const newQuestion = {
+      title: title.trim(),
+      authorId: identifier, // ✅ Store user ID or IP
+      createdAt: new Date(),
+      likes: 0,
+      likedBy: [],
+      anonymousLikes: [],
+      answers: []
+    };
+
+    const questionsCollection = db.collection("questions");
+    const result = await questionsCollection.insertOne(newQuestion);
+
+    res.status(201).json({ ...newQuestion, _id: result.insertedId });
+
+  } catch (error) {
+    console.error("Error creating question:", error);
+    res.status(500).json({ message: "Failed to create question" });
+  }
+}
+
 
 // Get all questions
 export async function getQuestions(req, res) {
@@ -65,79 +71,131 @@ export const getQuestion = async (req, res) => {
     }
 };
 
-
-// Like/unlike a question
-export const likeQuestion = async (req, res) => {
-    try {
-        const { questionId } = req.params;
-        const { userId } = req.body;
-        const userIp = req.ip; // Capture user's IP
-
-        console.log("Received like request for questionId:", questionId, "from user:", userId || "Anonymous");
-
-        // Ensure questionId is correctly formatted
-        if (!questionId) {
-            return res.status(400).json({ error: "Question ID is required." });
-        }
-
-        const question = await db.collection("questions").findOne({ _id: new ObjectId(questionId) });
-
-        if (!question) {
-            console.log("Question not found in database:", questionId); // Log issue
-            return res.status(404).json({ error: "Question not found" });
-        }
-
-        let likes = question.likes || [];
-        let anonymousLikes = question.anonymousLikes || [];
-
-        if (userId) {
-            if (likes.includes(userId)) {
-                likes = likes.filter(id => id !== userId);
-            } else {
-                likes.push(userId);
-            }
-        } else {
-            if (anonymousLikes.includes(userIp)) {
-                return res.status(400).json({ error: "You have already liked this question." });
-            } else {
-                anonymousLikes.push(userIp);
-            }
-        }
-
-        await db.collection("questions").updateOne(
-            { _id: questionId },
-            { $set: { likes, anonymousLikes } }
-        );
-
-        const updatedQuestion = await db.collection("questions").findOne({ _id:  new ObjectId(questionId) });
-
-        console.log("Updated question:", updatedQuestion);
-
-        res.json(updatedQuestion);
-
-    } catch (error) {
-        console.error("Error in likeQuestion:", error.message);
-        res.status(500).json({ error: "Internal server error" });
-    }
-};
-
-
-
-
-// Delete a question
-export async function deleteQuestion(req, res) {
+export async function likeQuestion(req, res) {
   try {
     const { questionId } = req.params;
-    if (!ObjectId.isValid(questionId)) return res.status(400).json({ message: "Invalid question ID" });
+    let { userId } = req.body;
+
+    // ✅ Ensure correct identifier for anonymous users
+    if (!userId) {
+      userId = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    }
+
+    console.log(`Received like request for questionId: ${questionId} from user: ${userId}`);
 
     const questionsCollection = db.collection("questions");
-    const result = await questionsCollection.deleteOne({ _id: new ObjectId(questionId) });
+    const question = await questionsCollection.findOne({ _id: new ObjectId(questionId) });
+    if (!question) return res.status(404).json({ message: "Question not found" });
 
-    if (result.deletedCount === 0) return res.status(404).json({ message: "Question not found" });
+    // ✅ Ensure likedBy and anonymousLikes arrays exist
+    if (!question.likedBy) question.likedBy = [];
+    if (!question.anonymousLikes) question.anonymousLikes = [];
 
-    res.status(200).json({ message: "Question deleted successfully" });
+    // ✅ Ensure likes count is an integer
+    if (typeof question.likes !== "number" || isNaN(question.likes)) {
+      question.likes = 0;
+    }
+
+    // ✅ Check if user has already liked
+    const isAnonymous = userId.includes(":") || userId.startsWith("Anonymous_");
+    const hasLiked = isAnonymous
+      ? question.anonymousLikes.includes(userId)
+      : question.likedBy.includes(userId);
+
+    if (hasLiked) {
+      // ✅ Unlike the question
+      question.likes = Math.max(0, question.likes - 1);
+      if (isAnonymous) {
+        question.anonymousLikes = question.anonymousLikes.filter(id => id !== userId);
+      } else {
+        question.likedBy = question.likedBy.filter(id => id !== userId);
+      }
+    } else {
+      // ✅ Like the question
+      question.likes += 1;
+      if (isAnonymous) {
+        question.anonymousLikes.push(userId);
+      } else {
+        question.likedBy.push(userId);
+      }
+    }
+
+    // ✅ Update the database
+    await questionsCollection.updateOne(
+      { _id: new ObjectId(questionId) },
+      { 
+        $set: { 
+          likes: question.likes,
+          likedBy: question.likedBy,
+          anonymousLikes: question.anonymousLikes
+        }
+      }
+    );
+
+    res.status(200).json({
+      _id: questionId,
+      likes: question.likes,
+      likedBy: question.likedBy,
+      anonymousLikes: question.anonymousLikes
+    });
+
   } catch (error) {
-    console.error("Error deleting question:", error);
+    console.error("Error toggling like:", error);
+    res.status(500).json({ message: "Failed to toggle like" });
+  }
+}
+
+export async function deleteQuestion(req, res) {
+  try {
+    console.log("Received DELETE request for question:", req.params.questionId);
+    console.log("Request body:", req.body);
+
+    const { questionId } = req.params;
+    let { userId } = req.body; // ✅ Extract userId from request
+
+    // ✅ Get IP for anonymous users
+    let userIP = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    let identifier = userId ? userId : `Anonymous_${userIP}`;
+
+    console.log(`User attempting to delete: ${userId} or IP: ${userIP}`);
+
+    const questionsCollection = db.collection("questions");
+    const usersCollection = db.collection("users"); // ✅ Get users collection
+
+    const question = await questionsCollection.findOne({ _id: new ObjectId(questionId) });
+
+    if (!question) {
+      console.log("❌ Question not found.");
+      return res.status(404).json({ message: "Question not found" });
+    }
+
+    console.log("✅ Found question:", question);
+
+    // ✅ Check if the user is an admin
+    let adminUser = null;
+    if (userId) {
+      adminUser = await usersCollection.findOne({ googleId: userId, status: "admin" });
+    }
+    const isAdmin = adminUser !== null;
+
+    console.log(`Admin check: userId=${userId}, Found admin? ${isAdmin}`);
+
+    // ✅ Allow delete if:
+    // - User is the **owner** (userId matches `authorId` OR IP matches)
+    // - User is an **admin**
+    if (question.authorId === identifier || isAdmin) {
+      console.log("✅ User authorized to delete question.");
+      await questionsCollection.deleteOne({ _id: new ObjectId(questionId) });
+      console.log("✅ Question deleted successfully.");
+      return res.status(200).json({ message: "Question deleted successfully" });
+    }
+
+    console.log("❌ User is NOT allowed to delete this question.");
+    return res.status(403).json({ message: "You are not allowed to delete this question" });
+
+  } catch (error) {
+    console.error("❌ Error deleting question:", error);
     res.status(500).json({ message: "Failed to delete question" });
   }
 }
+
