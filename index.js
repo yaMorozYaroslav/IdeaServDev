@@ -14,7 +14,7 @@ app.use(bodyParser.json({ limit: '50mb' }));
 app.use(cookieParser());
 app.use(cors({
   //~ origin: '*',
-  origin: ["https://idea-sphere.heroku.app",
+  origin: ["https://idea-sphere.vercel.app",
            //~ "https://idea-sphere-50bb3c5bc07b.herokuapp.com",
            "http://localhost:3000"],
   
