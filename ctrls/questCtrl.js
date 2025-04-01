@@ -4,11 +4,14 @@ import { ObjectId } from "mongodb";
 // Create a new question
 export async function createQuestion(req, res) {
   try {
+
     let { title, userId, name } = req.body; // ✅ Include name
+
 
     if (!title || title.trim().length === 0) {
       return res.status(400).json({ message: "Title cannot be empty" });
     }
+
 
     let ipAddress = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
     let identifier = userId ? userId : `Anonymous_${ipAddress}`;
