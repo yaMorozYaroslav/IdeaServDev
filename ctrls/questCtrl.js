@@ -4,24 +4,25 @@ import { ObjectId } from "mongodb";
 // Create a new question
 export async function createQuestion(req, res) {
   try {
-    let { title } = req.body;
-    let { userId } = req.body; // ✅ Will contain userId if logged in
+    let { title, userId, name } = req.body; // ✅ Include name
 
     if (!title || title.trim().length === 0) {
       return res.status(400).json({ message: "Title cannot be empty" });
     }
 
-    // ✅ Assign unique identifier: userId for logged-in users, IP for anonymous users
-    let identifier = userId ? userId : `Anonymous_${req.headers["x-forwarded-for"] || req.connection.remoteAddress}`;
+    let ipAddress = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    let identifier = userId ? userId : `Anonymous_${ipAddress}`;
+    let displayName = name ? name : "Anonymous";
 
     const newQuestion = {
       title: title.trim(),
-      authorId: identifier, // ✅ Store user ID or IP
+      authorId: identifier,  // ✅ Store userId or IP
+      authorName: displayName, // ✅ Store user’s name or "Anonymous"
       createdAt: new Date(),
       likes: 0,
       likedBy: [],
       anonymousLikes: [],
-      answers: []
+      answers: [],
     };
 
     const questionsCollection = db.collection("questions");
@@ -34,8 +35,6 @@ export async function createQuestion(req, res) {
     res.status(500).json({ message: "Failed to create question" });
   }
 }
-
-
 // Get all questions
 export async function getQuestions(req, res) {
   try {
