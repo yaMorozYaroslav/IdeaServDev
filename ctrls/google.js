@@ -124,49 +124,37 @@ export function logoutUser(req, res) {
 }
 
 export async function refreshToken(req, res) {
-  const { accessToken } = req.body; // ✅ Get old access token from body
-  const refreshToken = req.cookies?.refresh_token;
+  const { accessToken, refreshToken } = req.body;
 
   if (!refreshToken) {
-    return res.status(401).json({ message: "Not authenticated",  });
+    return res.status(401).json({ message: "No refresh token provided" });
   }
 
   try {
-    // 🔍 If access token exists, verify it
     if (accessToken) {
       try {
         const decodedAccess = jwt.verify(accessToken, process.env.JWT_SECRET || "test");
-        console.log("✅ Old access token is still valid for user:", decodedAccess.email);
-        return res.json({ accessToken }); // ✅ Return existing valid access token
-      } catch (err) {
-        console.log("⚠️ Old access token expired, proceeding with refresh...");
+        console.log("✅ Access token still valid:", decodedAccess.email);
+        return res.json({ accessToken }); // no refresh needed
+      } catch {
+        console.log("⚠️ Access token expired, refreshing...");
       }
     }
 
-    // 🔍 Verify refresh token
     const decodedRefresh = jwt.verify(refreshToken, process.env.JWT_SECRET || "test");
 
-    // 🔥 Generate new access token
     const newAccessToken = jwt.sign(
       { userId: decodedRefresh.userId, email: decodedRefresh.email, status: decodedRefresh.status || "user" },
       process.env.JWT_SECRET || "test",
       { expiresIn: "15m" }
     );
 
-    //~ // ✅ Update cookies with new access token
-    //~ res.cookie("access_token", newAccessToken, {
-      //~ httpOnly: true,
-      //~ secure: true,
-      //~ sameSite: "None",
-      //~ path: "/",
-      //~ maxAge: 15 * 60 * 1000,
-    //~ });
-
-    console.log("✅ New access token issued:", newAccessToken);
+    console.log("✅ Issued new access token");
 
     return res.json({ accessToken: newAccessToken });
   } catch (error) {
-    console.error("❌ Error refreshing token:", error);
+    console.error("❌ Refresh failed:", error.message);
     return res.status(401).json({ message: "Invalid or expired refresh token" });
   }
 }
+
