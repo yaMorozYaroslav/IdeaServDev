@@ -124,27 +124,21 @@ export function logoutUser(req, res) {
 }
 
 export async function refreshToken(req, res) {
-  const { accessToken, refreshToken } = req.body;
+  const { refreshToken } = req.body;
 
   if (!refreshToken) {
     return res.status(401).json({ message: "No refresh token provided" });
   }
 
   try {
-    if (accessToken) {
-      try {
-        const decodedAccess = jwt.verify(accessToken, process.env.JWT_SECRET || "test");
-        console.log("✅ Access token still valid:", decodedAccess.email);
-        return res.json({ accessToken }); // no refresh needed
-      } catch {
-        console.log("⚠️ Access token expired, refreshing...");
-      }
-    }
-
     const decodedRefresh = jwt.verify(refreshToken, process.env.JWT_SECRET || "test");
 
     const newAccessToken = jwt.sign(
-      { userId: decodedRefresh.userId, email: decodedRefresh.email, status: decodedRefresh.status || "user" },
+      {
+        userId: decodedRefresh.userId,
+        email: decodedRefresh.email,
+        status: decodedRefresh.status || "user",
+      },
       process.env.JWT_SECRET || "test",
       { expiresIn: "15m" }
     );
