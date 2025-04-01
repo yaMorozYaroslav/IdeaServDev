@@ -5,6 +5,7 @@ import { ObjectId } from "mongodb";
 export async function answerQuestion(req, res) {
   try {
     let { content, userId, name } = req.body; // ✅ Include name
+
     const { questionId } = req.params;
 
     if (!content || content.trim().length === 0) {
@@ -16,12 +17,14 @@ export async function answerQuestion(req, res) {
     let identifier = userId ? userId : `Anonymous_${ipAddress}`;
     let displayName = name ? name : "Anonymous";
 
+
     const questionsCollection = db.collection("questions");
     const question = await questionsCollection.findOne({ _id: new ObjectId(questionId) });
 
     if (!question) return res.status(404).json({ message: "Question not found" });
 
     const newAnswer = {
+
       _id: new ObjectId(),
       content: content.trim(),
       authorId: identifier,
