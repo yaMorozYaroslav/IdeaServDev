@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import googleRoutes from './routes/auth.js';
 import questionRoutes from './routes/questions.js';
+import {sendEmail} from './sendEmail.js'
 
 dotenv.config();
 
