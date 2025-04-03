@@ -16,7 +16,8 @@ app.use(cors({
   //~ origin: '*',
   origin: ["https://idea-sphere.vercel.app",
            //~ "https://idea-sphere-50bb3c5bc07b.herokuapp.com",
-           "http://localhost:3000"],
+           "http://localhost:3000",
+           'https://very-portfolio.vercel.app'],
   
   credentials: true,
   //~ allowedHeaders: ["Content-Type", "Authorization"]
