@@ -31,10 +31,8 @@ app.set("trust proxy", 1);
 
 app.use('/google', googleRoutes);
 app.use('/questions', questionRoutes);
-<<<<<<< HEAD
 app.post('/email', sendEmail)
-=======
->>>>>>> prod/master
+
 
 app.get('/', (req, res) => {
   res.send('Hello to Idea Sphere API');
