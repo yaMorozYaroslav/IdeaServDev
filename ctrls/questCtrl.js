@@ -25,7 +25,8 @@ export async function createQuestion(req, res) {
       likes: 0,
       likedBy: [],
       anonymousLikes: [],
-      answers: [],
+
+      answers: []
     };
 
     const questionsCollection = db.collection("questions");
@@ -38,6 +39,7 @@ export async function createQuestion(req, res) {
     res.status(500).json({ message: "Failed to create question" });
   }
 }
+
 // Get all questions
 export async function getQuestions(req, res) {
   try {

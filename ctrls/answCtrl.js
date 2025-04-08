@@ -17,7 +17,6 @@ export async function answerQuestion(req, res) {
     let identifier = userId ? userId : `Anonymous_${ipAddress}`;
     let displayName = name ? name : "Anonymous";
 
-
     const questionsCollection = db.collection("questions");
     const question = await questionsCollection.findOne({ _id: new ObjectId(questionId) });
 

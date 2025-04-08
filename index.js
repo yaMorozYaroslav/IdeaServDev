@@ -16,10 +16,12 @@ app.use(cookieParser());
 app.use(cors({
   //~ origin: '*',
   origin: ["https://idea-sphere.vercel.app",
-           //~ "https://idea-sphere-50bb3c5bc07b.herokuapp.com",
+           "https://idea-sphere-dev.verce.app",
            "http://localhost:3000",
            "https://very-portfolio.vercel.app"],
-  
+
+
+
   credentials: true,
   //~ allowedHeaders: ["Content-Type", "Authorization"]
 }));
@@ -29,6 +31,7 @@ app.set("trust proxy", 1);
 app.use('/google', googleRoutes);
 app.use('/questions', questionRoutes);
 app.post('/email', sendEmail)
+
 
 app.get('/', (req, res) => {
   res.send('Hello to Idea Sphere API');
