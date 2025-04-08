@@ -4,7 +4,9 @@ import { ObjectId } from "mongodb";
 // Add an answer to a question
 export async function answerQuestion(req, res) {
   try {
+
     let { content, userId, name } = req.body; // ✅ Include name
+
 
     const { questionId } = req.params;
 
@@ -12,11 +14,11 @@ export async function answerQuestion(req, res) {
       return res.status(400).json({ message: "Answer cannot be empty" });
     }
 
+
     // ✅ Assign unique identifier: userId or IP
     let ipAddress = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
     let identifier = userId ? userId : `Anonymous_${ipAddress}`;
     let displayName = name ? name : "Anonymous";
-
 
     const questionsCollection = db.collection("questions");
     const question = await questionsCollection.findOne({ _id: new ObjectId(questionId) });
@@ -25,10 +27,9 @@ export async function answerQuestion(req, res) {
 
     const newAnswer = {
 
-      _id: new ObjectId(),
+      _id: new ObjectId(), // ✅ Create a unique ObjectId for each answer
       content: content.trim(),
-      authorId: identifier,
-      authorName: displayName, // ✅ Store the user's name or "Anonymous"
+      authorId: identifier, // ✅ Store user ID or IP
       createdAt: new Date(),
       likes: 0,
       likedBy: [],

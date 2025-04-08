@@ -7,6 +7,7 @@ import googleRoutes from './routes/auth.js';
 import questionRoutes from './routes/questions.js';
 import {sendEmail} from './sendEmail.js'
 
+
 dotenv.config();
 
 const app = express();
@@ -16,9 +17,11 @@ app.use(cookieParser());
 app.use(cors({
   //~ origin: '*',
   origin: ["https://idea-sphere.vercel.app",
+           "https://idea-sphere-dev.vercel.app",
            //~ "https://idea-sphere-50bb3c5bc07b.herokuapp.com",
            "http://localhost:3000",
            "https://very-portfolio.vercel.app"],
+
   
   credentials: true,
   //~ allowedHeaders: ["Content-Type", "Authorization"]
@@ -28,7 +31,10 @@ app.set("trust proxy", 1);
 
 app.use('/google', googleRoutes);
 app.use('/questions', questionRoutes);
+<<<<<<< HEAD
 app.post('/email', sendEmail)
+=======
+>>>>>>> prod/master
 
 app.get('/', (req, res) => {
   res.send('Hello to Idea Sphere API');

@@ -5,13 +5,14 @@ import { ObjectId } from "mongodb";
 export async function createQuestion(req, res) {
   try {
 
+
     let { title, userId, name } = req.body; // ✅ Include name
+
 
 
     if (!title || title.trim().length === 0) {
       return res.status(400).json({ message: "Title cannot be empty" });
     }
-
 
     let ipAddress = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
     let identifier = userId ? userId : `Anonymous_${ipAddress}`;
@@ -21,11 +22,13 @@ export async function createQuestion(req, res) {
       title: title.trim(),
       authorId: identifier,  // ✅ Store userId or IP
       authorName: displayName, // ✅ Store user’s name or "Anonymous"
+
       createdAt: new Date(),
       likes: 0,
       likedBy: [],
       anonymousLikes: [],
       answers: [],
+
     };
 
     const questionsCollection = db.collection("questions");
@@ -38,6 +41,7 @@ export async function createQuestion(req, res) {
     res.status(500).json({ message: "Failed to create question" });
   }
 }
+
 // Get all questions
 export async function getQuestions(req, res) {
   try {

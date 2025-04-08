@@ -124,30 +124,43 @@ export function logoutUser(req, res) {
 }
 
 export async function refreshToken(req, res) {
-  const { refreshToken } = req.body;
+
+  const { accessToken } = req.body; // ✅ Get old access token from body
+  const refreshToken = req.cookies?.refresh_token;
 
   if (!refreshToken) {
-    return res.status(401).json({ message: "No refresh token provided" });
+    return res.status(401).json({ message: "Not authenticated",  });
   }
 
   try {
+    // 🔍 If access token exists, verify it
+    if (accessToken) {
+      try {
+        const decodedAccess = jwt.verify(accessToken, process.env.JWT_SECRET || "test");
+        console.log("✅ Old access token is still valid for user:", decodedAccess.email);
+        return res.json({ accessToken }); // ✅ Return existing valid access token
+      } catch (err) {
+        console.log("⚠️ Old access token expired, proceeding with refresh...");
+      }
+    }
+
+    // 🔍 Verify refresh token
     const decodedRefresh = jwt.verify(refreshToken, process.env.JWT_SECRET || "test");
 
+    // 🔥 Generate new access token
     const newAccessToken = jwt.sign(
-      {
-        userId: decodedRefresh.userId,
-        email: decodedRefresh.email,
-        status: decodedRefresh.status || "user",
-      },
+      { userId: decodedRefresh.userId, email: decodedRefresh.email, status: decodedRefresh.status || "user" },
+
       process.env.JWT_SECRET || "test",
       { expiresIn: "15m" }
     );
 
-    console.log("✅ Issued new access token");
+
+    console.log("✅ New access token issued:", newAccessToken);
 
     return res.json({ accessToken: newAccessToken });
   } catch (error) {
-    console.error("❌ Refresh failed:", error.message);
+    console.error("❌ Error refreshing token:", error);
     return res.status(401).json({ message: "Invalid or expired refresh token" });
   }
 }
