@@ -10,8 +10,14 @@ export async function handleOAuthCallback(req, res) {
   }
 
   try {
-    const REDIRECT_URI = "https://idea-sphere-50bb3c5bc07b.herokuapp.com/google/oauth/callback";
-
+    const origin = req.headers.origin || req.headers.referer || "";
+    let REDIRECT_URI = "https://idea-sphere-50bb3c5bc07b.herokuapp.com/google/oauth/callback";
+    
+    if (origin.includes("localhost:3000")) {
+      REDIRECT_URI = "http://localhost:5000/google/oauth/callback";
+    } else if (origin.includes("idea-sphere-dev.vercel.app")) {
+      REDIRECT_URI = "https://idea-sphere-dev-30492dbf5e99.herokuapp.com/google/oauth/callback";
+}
     // 🔍 Exchange OAuth code for tokens
     const tokenResponse = await axios.post("https://oauth2.googleapis.com/token", {
       code,
@@ -77,8 +83,19 @@ export async function handleOAuthCallback(req, res) {
     console.log("✅ Tokens generated, redirecting with tokens...");
 
     // 🚀 Send both tokens in the redirect URL
-    const redirectUrl = `https://idea-sphere.vercel.app/api/store-tokens?access_token=${accessToken}&refresh_token=${refreshToken}`;
+    // Detect origin again
+    const origin = req.headers.origin || req.headers.referer || "";
+    let clientRedirectBase = "https://idea-sphere.vercel.app"; // default to prod
+    
+    if (origin.includes("localhost:3000")) {
+      clientRedirectBase = "http://localhost:3000";
+    } else if (origin.includes("idea-sphere-dev.vercel.app")) {
+      clientRedirectBase = "https://idea-sphere-dev.vercel.app";
+    }
+    
+    const redirectUrl = `${clientRedirectBase}/api/store-tokens?access_token=${accessToken}&refresh_token=${refreshToken}`;
     res.redirect(redirectUrl);
+    
 
   } catch (error) {
     console.error("❌ Error during OAuth callback:", error.response?.data || error.message);
