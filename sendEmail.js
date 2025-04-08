@@ -1,3 +1,4 @@
+
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
@@ -46,3 +47,4 @@ ${items || '(No message provided)'}
     res.status(500).json({ message: 'Internal server error.' });
   }
 };
+
