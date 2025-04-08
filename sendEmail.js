@@ -1,4 +1,3 @@
-
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
@@ -22,7 +21,7 @@ export const sendEmail = async (req, res) => {
 
     const mailOptions = {
       from: user_email,
-      to: 'yaroslav.moroz.a@gmail.com', // your main inbox
+      to: 'yaroslav.moroz.a@gmail.com',
       subject: 'New Contact Form Submission',
       text: `
 📨 Contact Form Submission:
@@ -47,4 +46,3 @@ ${items || '(No message provided)'}
     res.status(500).json({ message: 'Internal server error.' });
   }
 };
-
