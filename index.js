@@ -20,8 +20,6 @@ app.use(cors({
            "http://localhost:3000",
            "https://very-portfolio.vercel.app"],
 
-
-
   credentials: true,
   //~ allowedHeaders: ["Content-Type", "Authorization"]
 }));
@@ -31,7 +29,6 @@ app.set("trust proxy", 1);
 app.use('/google', googleRoutes);
 app.use('/questions', questionRoutes);
 app.post('/email', sendEmail)
-
 
 app.get('/', (req, res) => {
   res.send('Hello to Idea Sphere API');
