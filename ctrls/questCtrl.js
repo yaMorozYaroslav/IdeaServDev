@@ -4,6 +4,7 @@ import { ObjectId } from "mongodb";
 // Create a new question
 export async function createQuestion(req, res) {
   try {
+
     let { title, userId, name } = req.body;
 
     if (!title || title.trim().length === 0) {
@@ -50,6 +51,7 @@ export async function getQuestions(req, res) {
 
 // Get a single question by ID
 export const getQuestion = async (req, res) => {
+
   try {
     const { questionId } = req.params;
     const objectId = new ObjectId(questionId);
@@ -85,11 +87,14 @@ export async function likeQuestion(req, res) {
     const question = await questionsCollection.findOne({ _id: new ObjectId(questionId) });
     if (!question) return res.status(404).json({ message: "Question not found" });
 
+
     if (!question.likedBy) question.likedBy = [];
     if (!question.anonymousLikes) question.anonymousLikes = [];
+
     if (typeof question.likes !== "number" || isNaN(question.likes)) {
       question.likes = 0;
     }
+
 
     const isAnonymous = userId.includes(":") || userId.startsWith("Anonymous_");
     const hasLiked = isAnonymous
@@ -97,6 +102,7 @@ export async function likeQuestion(req, res) {
       : question.likedBy.includes(userId);
 
     if (hasLiked) {
+
       question.likes = Math.max(0, question.likes - 1);
       if (isAnonymous) {
         question.anonymousLikes = question.anonymousLikes.filter(id => id !== userId);
@@ -104,6 +110,7 @@ export async function likeQuestion(req, res) {
         question.likedBy = question.likedBy.filter(id => id !== userId);
       }
     } else {
+
       question.likes += 1;
       if (isAnonymous) {
         question.anonymousLikes.push(userId);
@@ -116,6 +123,7 @@ export async function likeQuestion(req, res) {
       { _id: new ObjectId(questionId) },
       {
         $set: {
+
           likes: question.likes,
           likedBy: question.likedBy,
           anonymousLikes: question.anonymousLikes
@@ -171,3 +179,4 @@ export async function deleteQuestion(req, res) {
     res.status(500).json({ message: "Failed to delete question" });
   }
 }
+
