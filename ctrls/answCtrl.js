@@ -5,8 +5,8 @@ import { ObjectId } from "mongodb";
 export async function answerQuestion(req, res) {
   try {
 
-    let { content, userId, name } = req.body; // ✅ Include name
 
+    const { content, userId, name } = req.body;
 
     const { questionId } = req.params;
 
@@ -14,26 +14,26 @@ export async function answerQuestion(req, res) {
       return res.status(400).json({ message: "Answer cannot be empty" });
     }
 
+    const ipAddress = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    const identifier = userId || `Anonymous_${ipAddress}`;
+    const displayName = name || "Anonymous";
 
-    // ✅ Assign unique identifier: userId or IP
-    let ipAddress = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-    let identifier = userId ? userId : `Anonymous_${ipAddress}`;
-    let displayName = name ? name : "Anonymous";
 
     const questionsCollection = db.collection("questions");
     const question = await questionsCollection.findOne({ _id: new ObjectId(questionId) });
-
     if (!question) return res.status(404).json({ message: "Question not found" });
 
     const newAnswer = {
 
-      _id: new ObjectId(), // ✅ Create a unique ObjectId for each answer
+      _id: new ObjectId(),
       content: content.trim(),
-      authorId: identifier, // ✅ Store user ID or IP
+      authorId: identifier,
+      authorName: displayName,
       createdAt: new Date(),
       likes: 0,
       likedBy: [],
-      anonymousLikes: []
+      anonymousLikes: [],
+
     };
 
     await questionsCollection.updateOne(
@@ -55,10 +55,11 @@ export async function likeAnswer(req, res) {
     let { userId } = req.body;
 
     if (!userId) {
-      userId = req.headers["x-forwarded-for"] || req.connection.remoteAddress || "Anonymous_" + Math.random().toString(36).substr(2, 9);
+
+      const ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+      userId = `Anonymous_${ip}`;
     }
 
-    console.log(`Processing like for answer ${answerId} on question ${questionId} by user: ${userId}`);
 
     const questionsCollection = db.collection("questions");
     const question = await questionsCollection.findOne({ _id: new ObjectId(questionId) });
@@ -68,24 +69,27 @@ export async function likeAnswer(req, res) {
     if (answerIndex === -1) return res.status(404).json({ message: "Answer not found" });
 
     const answer = question.answers[answerIndex];
-    if (!answer.likedBy) answer.likedBy = [];
-    if (!answer.anonymousLikes) answer.anonymousLikes = [];
 
-    // ✅ Ensure likes count is an integer
-    if (typeof answer.likes !== "number" || isNaN(answer.likes)) {
-      answer.likes = 0;
-    }
+    answer.likedBy = answer.likedBy || [];
+    answer.anonymousLikes = answer.anonymousLikes || [];
+    answer.likes = typeof answer.likes === "number" ? answer.likes : 0;
 
-    // ✅ Check if user already liked the answer
-    const hasLiked = answer.likedBy.includes(userId) || answer.anonymousLikes.includes(userId);
+    const isAnonymous = userId.startsWith("Anonymous_");
+    const hasLiked = isAnonymous
+      ? answer.anonymousLikes.includes(userId)
+      : answer.likedBy.includes(userId);
 
     if (hasLiked) {
       answer.likes = Math.max(0, answer.likes - 1);
-      answer.likedBy = answer.likedBy.filter(id => id !== userId);
-      answer.anonymousLikes = answer.anonymousLikes.filter(id => id !== userId);
+      if (isAnonymous) {
+        answer.anonymousLikes = answer.anonymousLikes.filter(id => id !== userId);
+      } else {
+        answer.likedBy = answer.likedBy.filter(id => id !== userId);
+      }
     } else {
       answer.likes += 1;
-      if (userId.startsWith("Anonymous_")) {
+      if (isAnonymous) {
+
         answer.anonymousLikes.push(userId);
       } else {
         answer.likedBy.push(userId);
@@ -94,12 +98,13 @@ export async function likeAnswer(req, res) {
 
     await questionsCollection.updateOne(
       { _id: new ObjectId(questionId), "answers._id": new ObjectId(answerId) },
-      { 
-        $set: { 
-          [`answers.${answerIndex}.likes`]: answer.likes, 
+
+      {
+        $set: {
+          [`answers.${answerIndex}.likes`]: answer.likes,
           [`answers.${answerIndex}.likedBy`]: answer.likedBy,
-          [`answers.${answerIndex}.anonymousLikes`]: answer.anonymousLikes
-        }
+          [`answers.${answerIndex}.anonymousLikes`]: answer.anonymousLikes,
+        },
       }
     );
 
@@ -111,13 +116,15 @@ export async function likeAnswer(req, res) {
   }
 }
 
+
+// Delete an answer
 export async function deleteAnswer(req, res) {
   try {
     const { questionId, answerId } = req.params;
-    let { userId } = req.body; // ✅ Contains userId if logged in
+    const { userId } = req.body;
 
-    // ✅ Determine user identity (IP for anonymous users)
-    let identifier = userId ? userId : `Anonymous_${req.headers["x-forwarded-for"] || req.connection.remoteAddress}`;
+    const ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    const identifier = userId || `Anonymous_${ip}`;
 
     const questionsCollection = db.collection("questions");
     const question = await questionsCollection.findOne({ _id: new ObjectId(questionId) });
@@ -127,12 +134,13 @@ export async function deleteAnswer(req, res) {
     const answer = question.answers.find(ans => ans._id.equals(new ObjectId(answerId)));
     if (!answer) return res.status(404).json({ message: "Answer not found" });
 
-    // ✅ Check if user is the owner or an admin
-    if (answer.authorId !== identifier && userId !== "admin") {
+    const isOwner = answer.authorId === identifier;
+    const isAdmin = userId === "admin";
+
+    if (!isOwner && !isAdmin) {
       return res.status(403).json({ message: "You are not allowed to delete this answer" });
     }
 
-    // ✅ Remove the answer from the array
     await questionsCollection.updateOne(
       { _id: new ObjectId(questionId) },
       { $pull: { answers: { _id: new ObjectId(answerId) } } }
@@ -145,4 +153,3 @@ export async function deleteAnswer(req, res) {
     res.status(500).json({ message: "Failed to delete answer" });
   }
 }
-

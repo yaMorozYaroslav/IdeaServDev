@@ -17,12 +17,11 @@ app.use(cookieParser());
 app.use(cors({
   //~ origin: '*',
   origin: ["https://idea-sphere.vercel.app",
-           "https://idea-sphere-dev.vercel.app",
-           //~ "https://idea-sphere-50bb3c5bc07b.herokuapp.com",
+           "https://idea-sphere-dev.verce.app",
            "http://localhost:3000",
            "https://very-portfolio.vercel.app"],
 
-  
+
   credentials: true,
   //~ allowedHeaders: ["Content-Type", "Authorization"]
 }));

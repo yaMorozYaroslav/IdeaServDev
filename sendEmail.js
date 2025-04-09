@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 //sendEmail.js
+=======
+
+>>>>>>> prod/master
 import nodemailer from 'nodemailer';
 
 const transporter = nodemailer.createTransport({
@@ -22,7 +26,11 @@ export const sendEmail = async (req, res) => {
 
     const mailOptions = {
       from: user_email,
+<<<<<<< HEAD
       to: 'yaroslav.moroz.a@gmail.com', // your main inbox
+=======
+      to: 'yaroslav.moroz.a@gmail.com',
+>>>>>>> prod/master
       subject: 'New Contact Form Submission',
       text: `
 📨 Contact Form Submission:
