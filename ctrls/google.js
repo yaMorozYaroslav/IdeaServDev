@@ -1,6 +1,7 @@
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import db from '../conn.js';
+import querystring from 'querystring';
 
 export async function handleOAuthCallback(req, res) {
   const code = req.query.code;
@@ -18,9 +19,6 @@ export async function handleOAuthCallback(req, res) {
     } else if (host.includes("idea-sphere-dev-30492dbf5e99.herokuapp.com")) {
       REDIRECT_URI = "https://idea-sphere-dev-30492dbf5e99.herokuapp.com/google/oauth/callback";
     }
-
-
-    import querystring from 'querystring';
 
 const tokenResponse = await axios.post(
   'https://oauth2.googleapis.com/token',
