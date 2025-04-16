@@ -17,7 +17,7 @@ app.use(cookieParser());
 app.use(cors({
   //~ origin: '*',
   origin: ["https://idea-sphere.vercel.app",
-           "https://idea-sphere-dev.verce.app",
+           "https://idea-sphere-dev.vercel.app",
            "http://localhost:3000",
            "https://very-portfolio.vercel.app"],
 
