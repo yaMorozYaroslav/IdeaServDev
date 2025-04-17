@@ -1,7 +1,6 @@
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import db from '../conn.js';
-import querystring from 'querystring';
 
 export async function handleOAuthCallback(req, res) {
   const code = req.query.code;
@@ -10,7 +9,6 @@ export async function handleOAuthCallback(req, res) {
   }
 
   try {
-
     const host = req.headers.host;
     let REDIRECT_URI = "https://idea-sphere-50bb3c5bc07b.herokuapp.com/google/oauth/callback";
 
@@ -20,25 +18,23 @@ export async function handleOAuthCallback(req, res) {
       REDIRECT_URI = "https://idea-sphere-dev-30492dbf5e99.herokuapp.com/google/oauth/callback";
     }
 
-const tokenResponse = await axios.post(
-  'https://oauth2.googleapis.com/token',
-  querystring.stringify({
-    code,
-    client_id: process.env.GOOGLE_CLIENT_ID,
-    client_secret: process.env.GOOGLE_CLIENT_SECRET,
-    redirect_uri: REDIRECT_URI,
-    grant_type: 'authorization_code',
-  }),
-  {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-  }
-);
-
+    const tokenResponse = await axios.post(
+      "https://oauth2.googleapis.com/token",
+      new URLSearchParams({
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: REDIRECT_URI,
+        grant_type: "authorization_code",
+      }).toString(),
+      {
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      }
+    );
 
     const tokens = tokenResponse.data;
-
 
     const profileResponse = await axios.get(
       "https://openidconnect.googleapis.com/v1/userinfo",
@@ -55,7 +51,6 @@ const tokenResponse = await axios.post(
     let user = await usersCollection.findOne({ email: profile.email });
 
     if (!user) {
-
       const newUser = {
         googleId: profile.sub,
         email: profile.email,
@@ -66,7 +61,6 @@ const tokenResponse = await axios.post(
       };
       const result = await usersCollection.insertOne(newUser);
       user = { ...newUser, _id: result.insertedId };
-
     }
 
     const JWT_SECRET = process.env.JWT_SECRET || "test";
@@ -100,12 +94,14 @@ const tokenResponse = await axios.post(
     }
 
     const redirectUrl = `${clientRedirectBase}/api/store-tokens?access_token=${accessToken}&refresh_token=${refreshToken}`;
-
     res.redirect(redirectUrl);
-
   } catch (error) {
-    console.error("❌ Error during OAuth callback:", error.response?.data || error.message);
-    res.status(500).json({ message: "Authentication failed", error: error.message });
+    console.error("❌ OAuth callback failed:");
+    console.error(error.response?.data || error.message);
+    res.status(500).json({
+      message: "Authentication failed",
+      error: error.response?.data || error.message,
+    });
   }
 }
 
@@ -117,20 +113,16 @@ export function getUserData(req, res) {
   }
 
   try {
-
     const user = jwt.verify(accessToken, process.env.JWT_SECRET || "test");
-
 
     res.json({
       id: user.userId,
       name: user.name,
       email: user.email,
       picture: user.picture,
-
       status: user.status,
     });
   } catch (err) {
-
     res.status(401).json({ message: "Invalid token" });
   }
 }
@@ -151,22 +143,20 @@ export async function refreshToken(req, res) {
   }
 
   try {
-    const decodedRefresh = jwt.verify(refreshToken, process.env.JWT_SECRET || "test");
+    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET || "test");
 
     const newAccessToken = jwt.sign(
       {
-        userId: decodedRefresh.userId,
-        email: decodedRefresh.email,
-        status: decodedRefresh.status || "user",
+        userId: decoded.userId,
+        email: decoded.email,
+        status: decoded.status || "user",
       },
-
       process.env.JWT_SECRET || "test",
       { expiresIn: "15m" }
     );
 
     return res.json({ accessToken: newAccessToken });
   } catch (error) {
-
     return res.status(401).json({ message: "Invalid or expired refresh token" });
   }
 }
