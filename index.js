@@ -21,7 +21,6 @@ app.use(cors({
            "http://localhost:3000",
            "https://very-portfolio.vercel.app"],
 
-
   credentials: true,
   //~ allowedHeaders: ["Content-Type", "Authorization"]
 }));

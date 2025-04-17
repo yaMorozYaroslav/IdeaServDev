@@ -91,6 +91,7 @@ export async function likeQuestion(req, res) {
     if (!question.likedBy) question.likedBy = [];
     if (!question.anonymousLikes) question.anonymousLikes = [];
 
+
     if (typeof question.likes !== "number" || isNaN(question.likes)) {
       question.likes = 0;
     }
@@ -179,4 +180,3 @@ export async function deleteQuestion(req, res) {
     res.status(500).json({ message: "Failed to delete question" });
   }
 }
-

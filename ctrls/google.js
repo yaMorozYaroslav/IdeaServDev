@@ -19,7 +19,6 @@ export async function handleOAuthCallback(req, res) {
       REDIRECT_URI = "https://idea-sphere-dev-30492dbf5e99.herokuapp.com/google/oauth/callback";
     }
 
-
     const tokenResponse = await axios.post("https://oauth2.googleapis.com/token", {
       code,
       client_id: process.env.GOOGLE_CLIENT_ID,
@@ -29,7 +28,6 @@ export async function handleOAuthCallback(req, res) {
     });
 
     const tokens = tokenResponse.data;
-
 
     const profileResponse = await axios.get(
       "https://openidconnect.googleapis.com/v1/userinfo",
@@ -46,7 +44,6 @@ export async function handleOAuthCallback(req, res) {
     let user = await usersCollection.findOne({ email: profile.email });
 
     if (!user) {
-
       const newUser = {
         googleId: profile.sub,
         email: profile.email,
@@ -108,7 +105,6 @@ export function getUserData(req, res) {
   }
 
   try {
-
     const user = jwt.verify(accessToken, process.env.JWT_SECRET || "test");
 
 
@@ -121,7 +117,6 @@ export function getUserData(req, res) {
       status: user.status,
     });
   } catch (err) {
-
     res.status(401).json({ message: "Invalid token" });
   }
 }
