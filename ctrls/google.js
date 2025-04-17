@@ -18,14 +18,22 @@ export async function handleOAuthCallback(req, res) {
     } else if (host.includes("idea-sphere-dev-30492dbf5e99.herokuapp.com")) {
       REDIRECT_URI = "https://idea-sphere-dev-30492dbf5e99.herokuapp.com/google/oauth/callback";
     }
+const tokenResponse = await axios.post(
+  "https://oauth2.googleapis.com/token",
+  querystring.stringify({
+    code,
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    client_secret: process.env.GOOGLE_CLIENT_SECRET,
+    redirect_uri: REDIRECT_URI,
+    grant_type: "authorization_code",
+  }),
+  {
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+  }
+);
 
-    const tokenResponse = await axios.post("https://oauth2.googleapis.com/token", {
-      code,
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      redirect_uri: REDIRECT_URI,
-      grant_type: "authorization_code",
-    });
 
     const tokens = tokenResponse.data;
 
