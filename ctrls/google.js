@@ -1,6 +1,7 @@
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import db from '../conn.js';
+import querystring from 'querystring'; // ✅ Needed for proper encoding
 
 export async function handleOAuthCallback(req, res) {
   const code = req.query.code;
