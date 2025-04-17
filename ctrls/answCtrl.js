@@ -38,13 +38,13 @@ export async function answerQuestion(req, res) {
     );
 
     res.status(201).json(newAnswer);
-
   } catch (error) {
     console.error("Error creating answer:", error);
     res.status(500).json({ message: "Failed to create answer" });
   }
 }
 
+// Like or unlike an answer
 export async function likeAnswer(req, res) {
   try {
     const { questionId, answerId } = req.params;
@@ -105,13 +105,11 @@ export async function likeAnswer(req, res) {
     );
 
     res.status(200).json(answer);
-
   } catch (error) {
     console.error("Error toggling like:", error);
     res.status(500).json({ message: "Failed to toggle like" });
   }
 }
-
 
 // Delete an answer
 export async function deleteAnswer(req, res) {
@@ -124,7 +122,6 @@ export async function deleteAnswer(req, res) {
 
     const questionsCollection = db.collection("questions");
     const question = await questionsCollection.findOne({ _id: new ObjectId(questionId) });
-
     if (!question) return res.status(404).json({ message: "Question not found" });
 
     const answer = question.answers.find(ans => ans._id.equals(new ObjectId(answerId)));
@@ -143,7 +140,6 @@ export async function deleteAnswer(req, res) {
     );
 
     res.status(200).json({ message: "Answer deleted successfully" });
-
   } catch (error) {
     console.error("Error deleting answer:", error);
     res.status(500).json({ message: "Failed to delete answer" });
