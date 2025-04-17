@@ -11,7 +11,7 @@ import {sendEmail} from './sendEmail.js'
 dotenv.config();
 
 const app = express();
-
+//dd
 app.use(bodyParser.json({ limit: '50mb' }));
 app.use(cookieParser());
 app.use(cors({
@@ -20,7 +20,6 @@ app.use(cors({
            "https://idea-sphere-dev.vercel.app",
            "http://localhost:3000",
            "https://very-portfolio.vercel.app"],
-
 
   credentials: true,
   //~ allowedHeaders: ["Content-Type", "Authorization"]

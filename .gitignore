@@ -1,4 +1,5 @@
 #.env
+.envi
 /node_modules
 .pnp.*
 .yarn/*
