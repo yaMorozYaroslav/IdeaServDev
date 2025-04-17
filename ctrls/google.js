@@ -9,31 +9,21 @@ export async function handleOAuthCallback(req, res) {
     return res.status(400).json({ message: "Authorization code is missing" });
   }
 
-  try {
-    const host = req.headers.host;
-    let REDIRECT_URI = "https://idea-sphere-50bb3c5bc07b.herokuapp.com/google/oauth/callback";
-
-    if (host.includes("localhost:5000")) {
-      REDIRECT_URI = "http://localhost:5000/google/oauth/callback";
-    } else if (host.includes("idea-sphere-dev-30492dbf5e99.herokuapp.com")) {
-      REDIRECT_URI = "https://idea-sphere-dev-30492dbf5e99.herokuapp.com/google/oauth/callback";
-    }
-
-    const tokenResponse = await axios.post(
-      "https://oauth2.googleapis.com/token",
-      querystring.stringify({
-        code,
-        client_id: process.env.GOOGLE_CLIENT_ID,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET,
-        redirect_uri: REDIRECT_URI,
-        grant_type: "authorization_code",
-      }),
-      {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-      }
-    );
+  const tokenResponse = await axios.post(
+  "https://oauth2.googleapis.com/token",
+  new URLSearchParams({
+    code,
+    client_id: process.env.GOOGLE_CLIENT_ID,
+    client_secret: process.env.GOOGLE_CLIENT_SECRET,
+    redirect_uri: REDIRECT_URI,
+    grant_type: "authorization_code",
+  }).toString(),
+  {
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+  }
+);
 
     const tokens = tokenResponse.data;
 
