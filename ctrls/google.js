@@ -17,6 +17,8 @@ export async function handleOAuthCallback(req, res) {
     } else if (host.includes("idea-sphere-dev-30492dbf5e99.herokuapp.com")) {
       REDIRECT_URI = "https://idea-sphere-dev-30492dbf5e99.herokuapp.com/google/oauth/callback";
     }
+console.log("GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID);
+console.log("GOOGLE_CLIENT_SECRET:", process.env.GOOGLE_CLIENT_SECRET);
 
     const tokenResponse = await axios.post(
       "https://oauth2.googleapis.com/token",
