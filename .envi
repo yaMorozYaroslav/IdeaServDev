@@ -1,6 +1,0 @@
-PORT=5000
-GMAIL_KEY=dqzm dwug xvdr myzt
-CONNECTION_URL=mongodb+srv://Yaroslav:Hir3eht3@cluster0.tlfsw.mongodb.net/PropertyDatabase?retryWrites=true&w=majority
-
-GOOGLE_CLIENT_ID=432974885424-e9uvil49co9fdqm808tltb6c6le37eo6.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=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
