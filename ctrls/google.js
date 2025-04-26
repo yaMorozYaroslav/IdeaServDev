@@ -2,6 +2,9 @@ import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import db from '../conn.js';
 
+// -------------------------
+// OAuth Callback Handler
+// -------------------------
 export async function handleOAuthCallback(req, res) {
   const code = req.query.code;
   if (!code) {
@@ -17,8 +20,6 @@ export async function handleOAuthCallback(req, res) {
     } else if (host.includes("idea-sphere-dev-30492dbf5e99.herokuapp.com")) {
       REDIRECT_URI = "https://idea-sphere-dev-30492dbf5e99.herokuapp.com/google/oauth/callback";
     }
-console.log("GOOGLE_CLIENT_ID:", process.env.GOOGLE_CLIENT_ID);
-console.log("GOOGLE_CLIENT_SECRET:", process.env.GOOGLE_CLIENT_SECRET);
 
     const tokenResponse = await axios.post(
       "https://oauth2.googleapis.com/token",
@@ -88,6 +89,7 @@ console.log("GOOGLE_CLIENT_SECRET:", process.env.GOOGLE_CLIENT_SECRET);
       { expiresIn: "7d" }
     );
 
+    // 🔥 Correct frontend redirect
     let clientRedirectBase = "https://idea-sphere.vercel.app";
     if (host.includes("localhost:5000")) {
       clientRedirectBase = "http://localhost:3000";
@@ -95,11 +97,12 @@ console.log("GOOGLE_CLIENT_SECRET:", process.env.GOOGLE_CLIENT_SECRET);
       clientRedirectBase = "https://idea-sphere-dev.vercel.app";
     }
 
-    const redirectUrl = `${clientRedirectBase}/api/store-tokens?access_token=${accessToken}&refresh_token=${refreshToken}`;
+    const redirectUrl = `${clientRedirectBase}/api/store-tokens?access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}`;
+
     res.redirect(redirectUrl);
+
   } catch (error) {
-    console.error("❌ OAuth callback failed:");
-    console.error(error.response?.data || error.message);
+    console.error("❌ OAuth callback failed:", error.response?.data || error.message);
     res.status(500).json({
       message: "Authentication failed",
       error: error.response?.data || error.message,
@@ -107,6 +110,9 @@ console.log("GOOGLE_CLIENT_SECRET:", process.env.GOOGLE_CLIENT_SECRET);
   }
 }
 
+// -------------------------
+// Get User Data
+// -------------------------
 export function getUserData(req, res) {
   const { accessToken } = req.body;
 
@@ -129,14 +135,20 @@ export function getUserData(req, res) {
   }
 }
 
+// -------------------------
+// Logout User
+// -------------------------
 export function logoutUser(req, res) {
-  res.clearCookie('access_token', { httpOnly: true, sameSite: 'None' });
-  res.clearCookie('refresh_token', { httpOnly: true, sameSite: 'None' });
-  res.clearCookie('user_data', { httpOnly: false, sameSite: 'None' });
+  res.clearCookie('access_token', { httpOnly: true, sameSite: 'None', secure: true });
+  res.clearCookie('refresh_token', { httpOnly: true, sameSite: 'None', secure: true });
+  res.clearCookie('user_data', { httpOnly: false, sameSite: 'Lax', secure: true });
 
   res.status(200).json({ message: 'Logged out successfully' });
 }
 
+// -------------------------
+// Refresh Token
+// -------------------------
 export async function refreshToken(req, res) {
   const { refreshToken } = req.body;
 
