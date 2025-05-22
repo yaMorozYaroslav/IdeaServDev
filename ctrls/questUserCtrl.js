@@ -1,7 +1,7 @@
 import db from "../conn.js";
 import { ObjectId } from "mongodb";
 
-// ✅ Create a personal question (already implemented)
+// ✅ Create a personal question
 export async function createPersonalQuestion(req, res) {
   try {
     const { title, recipientUserId, userId, name } = req.body;
@@ -38,7 +38,7 @@ export async function createPersonalQuestion(req, res) {
   }
 }
 
-// ✅ Answer a personal question (PATCH /personal/answer/:questionId)
+// ✅ Answer a personal question
 export async function answerPersonalQuestion(req, res) {
   try {
     const { questionId } = req.params;
@@ -85,31 +85,49 @@ export async function answerPersonalQuestion(req, res) {
   }
 }
 
-// ✅ Delete a personal question (must be the receiver)
+// ✅ Delete a personal question (supports owner, admin, anonymous by IP)
 export async function deletePersonalQuestion(req, res) {
   try {
     const { questionId } = req.params;
-    const googleId = req.user?.googleId; // ✅ FIXED: use correct property from decoded token
+    const { userId } = req.body;
 
-    if (!googleId) {
-      return res.status(403).json({ message: "Not authorized" });
+    const ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    const anonymousId = `Anonymous_${ip}`;
+
+    const usersCollection = db.collection("users");
+
+    // Check if user is admin
+    let isAdmin = false;
+    if (userId) {
+      const adminUser = await usersCollection.findOne({ googleId: userId, status: "admin" });
+      isAdmin = !!adminUser;
     }
 
-    const result = await db.collection("users").updateOne(
-      { googleId },
+    const result = await usersCollection.updateOne(
+      {
+        $or: [
+          { googleId: userId },
+          { "unanswered.authorId": anonymousId },
+          { "answered.authorId": anonymousId },
+        ],
+      },
       {
         $pull: {
           unanswered: { _id: new ObjectId(questionId) },
-          answered: { _id: new ObjectId(questionId) }
-        }
+          answered: { _id: new ObjectId(questionId) },
+        },
       }
     );
 
-    if (result.modifiedCount === 0) {
-      return res.status(404).json({ message: "Question not found or not deleted" });
+    if (result.modifiedCount === 0 && !isAdmin) {
+      return res.status(403).json({ message: "You are not allowed to delete this question" });
     }
 
-    res.status(200).json({ message: "Question deleted" });
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ message: "Question not found" });
+    }
+
+    res.status(200).json({ message: "Question deleted successfully" });
   } catch (err) {
     console.error("❌ Error deleting personal question:", err);
     res.status(500).json({ message: "Failed to delete question" });
