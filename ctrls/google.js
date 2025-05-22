@@ -1,10 +1,57 @@
-import axios from 'axios';
-import jwt from 'jsonwebtoken';
-import db from '../conn.js';
+import axios from "axios";
+import jwt from "jsonwebtoken";
+import db from "../conn.js";
+import { ObjectId } from "mongodb";
 
-// -------------------------
-// OAuth Callback Handler
-// -------------------------
+export async function getPublicUserProfile(req, res) {
+  try {
+    const { userId } = req.params;
+
+    // 🧠 Parse cookies manually from headers
+    const rawCookie = req.headers.cookie
+      ?.split("; ")
+      .find((c) => c.startsWith("user_data="));
+
+    let requesterId = null;
+
+    if (rawCookie) {
+      try {
+        const decoded = JSON.parse(decodeURIComponent(rawCookie.split("=")[1]));
+        requesterId = decoded.userId;
+      } catch (err) {
+        console.error("❌ Failed to parse user_data cookie:", err);
+      }
+    }
+
+    const isOwner = requesterId === userId;
+
+    // 👇 Projection logic: include `unanswered` only if it's the profile owner
+    const projection = {
+      name: 1,
+      picture: 1,
+      googleId: 1,
+      answered: 1,
+      ...(isOwner ? { unanswered: 1 } : {})
+    };
+
+    const user = await db.collection("users").findOne(
+      { googleId: userId },
+      { projection }
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.status(200).json({ ...user, isOwner });
+  } catch (error) {
+    console.error("❌ Error fetching public user profile:", error);
+    res.status(500).json({ message: "Failed to fetch user profile" });
+  }
+}
+
+
+// 🔐 OAuth login callback
 export async function handleOAuthCallback(req, res) {
   const code = req.query.code;
   if (!code) {
@@ -14,13 +61,17 @@ export async function handleOAuthCallback(req, res) {
   try {
     const host = req.headers.host;
     let REDIRECT_URI = "https://idea-sphere-50bb3c5bc07b.herokuapp.com/google/oauth/callback";
+    let clientRedirectBase = "https://idea-sphere.vercel.app";
 
-    if (host.includes("localhost:5000")) {
+    if (host?.includes("localhost")) {
       REDIRECT_URI = "http://localhost:5000/google/oauth/callback";
-    } else if (host.includes("idea-sphere-dev-30492dbf5e99.herokuapp.com")) {
+      clientRedirectBase = "http://localhost:3000";
+    } else if (host?.includes("idea-sphere-dev")) {
       REDIRECT_URI = "https://idea-sphere-dev-30492dbf5e99.herokuapp.com/google/oauth/callback";
+      clientRedirectBase = "https://idea-sphere-dev.vercel.app";
     }
 
+    // Exchange auth code for access token
     const tokenResponse = await axios.post(
       "https://oauth2.googleapis.com/token",
       new URLSearchParams({
@@ -31,14 +82,13 @@ export async function handleOAuthCallback(req, res) {
         grant_type: "authorization_code",
       }).toString(),
       {
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
       }
     );
 
     const tokens = tokenResponse.data;
 
+    // Fetch Google profile
     const profileResponse = await axios.get(
       "https://openidconnect.googleapis.com/v1/userinfo",
       {
@@ -49,8 +99,8 @@ export async function handleOAuthCallback(req, res) {
     );
 
     const profile = profileResponse.data;
-
     const usersCollection = db.collection("users");
+
     let user = await usersCollection.findOne({ email: profile.email });
 
     if (!user) {
@@ -66,6 +116,11 @@ export async function handleOAuthCallback(req, res) {
       user = { ...newUser, _id: result.insertedId };
     }
 
+    const dbUser = await usersCollection.findOne(
+      { googleId: user.googleId },
+      { projection: { unanswered: 1 } }
+    );
+
     const JWT_SECRET = process.env.JWT_SECRET || "test";
 
     const accessToken = jwt.sign(
@@ -75,6 +130,7 @@ export async function handleOAuthCallback(req, res) {
         name: user.name,
         picture: user.picture,
         status: user.status,
+        unanswered: dbUser?.unanswered || [],
       },
       JWT_SECRET,
       { expiresIn: "15m" }
@@ -89,18 +145,12 @@ export async function handleOAuthCallback(req, res) {
       { expiresIn: "7d" }
     );
 
-    // 🔥 Correct frontend redirect
-    let clientRedirectBase = "https://idea-sphere.vercel.app";
-    if (host.includes("localhost:5000")) {
-      clientRedirectBase = "http://localhost:3000";
-    } else if (host.includes("idea-sphere-dev-30492dbf5e99.herokuapp.com")) {
-      clientRedirectBase = "https://idea-sphere-dev.vercel.app";
-    }
+    const redirectUrl = `${clientRedirectBase}/api/store-tokens?access_token=${encodeURIComponent(
+      accessToken
+    )}&refresh_token=${encodeURIComponent(refreshToken)}`;
 
-    const redirectUrl = `${clientRedirectBase}/api/store-tokens?access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}`;
-
+    console.log("✅ Redirecting to:", redirectUrl);
     res.redirect(redirectUrl);
-
   } catch (error) {
     console.error("❌ OAuth callback failed:", error.response?.data || error.message);
     res.status(500).json({
@@ -110,10 +160,8 @@ export async function handleOAuthCallback(req, res) {
   }
 }
 
-// -------------------------
-// Get User Data
-// -------------------------
-export function getUserData(req, res) {
+// 🔐 Get user from token
+export async function getUserData(req, res) {
   const { accessToken } = req.body;
 
   if (!accessToken) {
@@ -123,54 +171,112 @@ export function getUserData(req, res) {
   try {
     const user = jwt.verify(accessToken, process.env.JWT_SECRET || "test");
 
+    const usersCollection = db.collection("users");
+    const dbUser = await usersCollection.findOne(
+      { googleId: user.userId },
+      { projection: { unanswered: 1 } }
+    );
+
+    const unanswered = dbUser?.unanswered || [];
+
     res.json({
       id: user.userId,
       name: user.name,
       email: user.email,
       picture: user.picture,
       status: user.status,
+      username: user.username,
+      unanswered,
     });
   } catch (err) {
+    console.error("Token verification failed:", err);
     res.status(401).json({ message: "Invalid token" });
   }
 }
 
-// -------------------------
-// Logout User
-// -------------------------
+// 🔒 Logout
 export function logoutUser(req, res) {
-  res.clearCookie('access_token', { httpOnly: true, sameSite: 'None', secure: true });
-  res.clearCookie('refresh_token', { httpOnly: true, sameSite: 'None', secure: true });
-  res.clearCookie('user_data', { httpOnly: false, sameSite: 'Lax', secure: true });
+  res.clearCookie("access_token", { httpOnly: true, sameSite: "None", secure: true });
+  res.clearCookie("refresh_token", { httpOnly: true, sameSite: "None", secure: true });
+  res.clearCookie("user_data", { httpOnly: false, sameSite: "Lax", secure: true });
 
-  res.status(200).json({ message: 'Logged out successfully' });
+  res.status(200).json({ message: "Logged out successfully" });
 }
 
-// -------------------------
-// Refresh Token
-// -------------------------
 export async function refreshToken(req, res) {
   const { refreshToken } = req.body;
 
   if (!refreshToken) {
+    console.log("⛔ No refresh token provided");
     return res.status(401).json({ message: "No refresh token provided" });
   }
 
   try {
-    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET || "test");
+    const JWT_SECRET = process.env.JWT_SECRET || "test";
 
+    // 🔍 Decode and inspect the refresh token payload
+    const decoded = jwt.verify(refreshToken, JWT_SECRET);
+    console.log("🧪 Decoded refresh token payload:", decoded);
+
+    // 🔍 Look for the user by googleId = decoded.userId
+    const user = await db.collection("users").findOne(
+      { googleId: decoded.userId },
+      {
+        projection: {
+          googleId: 1,
+          name: 1,
+          email: 1,
+          picture: 1,
+          status: 1,
+          unanswered: 1,
+        },
+      }
+    );
+
+    console.log("📄 Found user from DB:", user);
+
+    if (!user) {
+      console.log("❌ No user found for googleId:", decoded.userId);
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // 🔐 Generate a new access token using googleId
     const newAccessToken = jwt.sign(
       {
-        userId: decoded.userId,
-        email: decoded.email,
-        status: decoded.status || "user",
+        userId: user.googleId, // ✅ Ensure googleId is encoded as userId
+        email: user.email,
+        name: user.name,
+        picture: user.picture,
+        status: user.status,
+        unanswered: user.unanswered || [],
       },
-      process.env.JWT_SECRET || "test",
+      JWT_SECRET,
       { expiresIn: "15m" }
     );
 
-    return res.json({ accessToken: newAccessToken });
+    // 📦 Build the userData object that gets returned to frontend
+    const userData = {
+      userId: user.googleId,
+      email: user.email,
+      name: user.name,
+      picture: user.picture,
+      status: user.status,
+      unanswered: user.unanswered || [],
+    };
+
+    console.log("📦 Returning refreshed accessToken and userData:", {
+      accessToken: newAccessToken,
+      userData,
+    });
+
+    return res.json({ accessToken: newAccessToken, userData });
   } catch (error) {
+    console.error("❌ Refresh token error:", error);
+
+    res.clearCookie("access_token");
+    res.clearCookie("refresh_token");
+    res.clearCookie("user_data");
+
     return res.status(401).json({ message: "Invalid or expired refresh token" });
   }
 }

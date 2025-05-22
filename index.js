@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import googleRoutes from './routes/auth.js';
 import questionRoutes from './routes/questions.js';
+import personalRoutes from './routes/userQuests.js'
 import {sendEmail} from './sendEmail.js'
 
 
@@ -29,6 +30,7 @@ app.set("trust proxy", 1);
 
 app.use('/google', googleRoutes);
 app.use('/questions', questionRoutes);
+app.use('/personal', personalRoutes);
 app.post('/email', sendEmail)
 
 

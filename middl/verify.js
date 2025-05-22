@@ -1,111 +1,98 @@
+import jwt from "jsonwebtoken";
 import db from "../conn.js";
 import { ObjectId } from "mongodb";
 
-export async function canDeleteQuest(req, res, next) {
+// ✅ Middleware to verify access token from cookies
+export function verifyToken(req, res, next) {
+  const token = req.cookies?.access_token;
+
+  if (!token) {
+    console.warn("⚠️ No access token provided.");
+    return res.status(401).json({ message: "Unauthorized: No token" });
+  }
+
   try {
-    const { userId } = req.body;
-    const { questionId } = req.params;
+    const JWT_SECRET = process.env.JWT_SECRET || "test";
+    const decoded = jwt.verify(token, JWT_SECRET);
 
-    if (!questionId) {
-      return res.status(400).json({ message: "Question ID is required" });
-    }
+    req.user = {
+      googleId: decoded.userId,
+      email: decoded.email,
+      name: decoded.name,
+      picture: decoded.picture,
+      status: decoded.status,
+    };
 
-    const userIP = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-    const questionsCollection = db.collection("questions");
-    const usersCollection = db.collection("users");
-
-    const question = await questionsCollection.findOne({ _id: new ObjectId(questionId) });
-    if (!question) {
-      return res.status(404).json({ message: "Question not found" });
-    }
-
-    let isAdmin = false;
-    let authorIdentifier = `Anonymous_${userIP}`; // default fallback
-
-    if (userId && !userId.startsWith("Anonymous_")) {
-      const user = await usersCollection.findOne({ googleId: userId });
-      isAdmin = user?.status === "admin";
-      if (user) authorIdentifier = userId;
-    } else if (userId) {
-      // If already anonymous ID from frontend
-      authorIdentifier = userId;
-    }
-
-    console.log(`🔍 Checking delete permissions for Question:
-      userId = ${userId || "Anonymous"},
-      isAdmin = ${isAdmin},
-      question.authorId = ${question.authorId},
-      authorIdentifier = ${authorIdentifier}
-    `);
-
-    if (String(question.authorId) === String(authorIdentifier) || isAdmin) {
-      console.log("✅ Question deletion authorized.");
-      return next();
-    } else {
-      console.log("❌ Deletion denied: Not the author or admin.");
-      return res.status(403).json({ message: "You are not allowed to delete this question" });
-    }
-
-  } catch (error) {
-    console.error("❌ Error checking delete permissions:", error);
-    return res.status(500).json({ message: "Failed to check delete permissions" });
+    next();
+  } catch (err) {
+    console.error("❌ Invalid access token:", err.message);
+    return res.status(401).json({ message: "Unauthorized: Invalid token" });
   }
 }
 
-export async function canDeleteAnswer(req, res, next) {
+// ✅ Middleware to check if user can delete a general question
+export async function canDeleteQuest(req, res, next) {
   try {
-    const { userId } = req.body;
-    const { questionId, answerId } = req.params;
-
-    if (!questionId || !answerId) {
-      return res.status(400).json({ message: "Question ID and Answer ID are required" });
-    }
-
-    const userIP = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    const { questionId } = req.params;
     const questionsCollection = db.collection("questions");
-    const usersCollection = db.collection("users");
 
-    const question = await questionsCollection.findOne({ _id: new ObjectId(questionId) });
+    const question = await questionsCollection.findOne({
+      _id: new ObjectId(questionId),
+    });
+
     if (!question) {
-      console.log("❌ Question not found.");
       return res.status(404).json({ message: "Question not found" });
     }
 
-    const answer = question.answers.find(ans => String(ans._id) === String(answerId));
+    const user = req.user;
+    const ipAddress = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+
+    const isOwner = question.authorId === user?.googleId;
+    const isAdmin = user?.status === "admin";
+    const isSameIp = question.authorId?.startsWith("Anonymous_") && question.authorId.endsWith(ipAddress);
+
+    if (isOwner || isAdmin || isSameIp) {
+      return next();
+    }
+
+    return res.status(403).json({ message: "Forbidden: You can't delete this question" });
+  } catch (err) {
+    console.error("❌ Error in canDeleteQuest:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+
+// ✅ Middleware to check if user can delete an answer
+export async function canDeleteAnswer(req, res, next) {
+  try {
+    const { questionId, answerId } = req.params;
+    const questionsCollection = db.collection("questions");
+
+    const question = await questionsCollection.findOne({
+      _id: new ObjectId(questionId),
+    });
+
+    if (!question) {
+      return res.status(404).json({ message: "Question not found" });
+    }
+
+    const answer = question.answers.find(a => a._id.toString() === answerId);
     if (!answer) {
-      console.log("❌ Answer not found.");
       return res.status(404).json({ message: "Answer not found" });
     }
 
-    let isAdmin = false;
-    let authorIdentifier = `Anonymous_${userIP}`; // default to anonymous
+    const user = req.user;
+    const isOwner = answer.authorId === user?.googleId;
+    const isQuestionOwner = question.authorId === user?.googleId;
+    const isAdmin = user?.status === "admin";
 
-    if (userId && !userId.startsWith("Anonymous_")) {
-      const user = await usersCollection.findOne({ googleId: userId });
-      isAdmin = user?.status === "admin";
-      if (user) authorIdentifier = userId; // override anonymous fallback
-    } else if (userId) {
-      // If userId is already an anonymous ID, use it directly
-      authorIdentifier = userId;
-    }
-
-    console.log(`🔍 Checking delete permissions:
-      userId = ${userId || "Anonymous"},
-      isAdmin = ${isAdmin},
-      authorId in answer = ${answer.authorId},
-      authorIdentifier = ${authorIdentifier}
-    `);
-
-    if (String(answer.authorId) === String(authorIdentifier) || isAdmin) {
-      console.log("✅ Deletion authorized.");
+    if (isOwner || isQuestionOwner || isAdmin) {
       return next();
-    } else {
-      console.log("❌ Deletion denied: Not author or admin.");
-      return res.status(403).json({ message: "You are not allowed to delete this answer" });
     }
 
-  } catch (error) {
-    console.error("❌ Error checking delete permissions:", error);
-    return res.status(500).json({ message: "Failed to check delete permissions" });
+    return res.status(403).json({ message: "Forbidden: You can't delete this answer" });
+  } catch (err) {
+    console.error("❌ Error in canDeleteAnswer:", err);
+    return res.status(500).json({ message: "Internal server error" });
   }
 }
