@@ -89,14 +89,14 @@ export async function answerPersonalQuestion(req, res) {
 export async function deletePersonalQuestion(req, res) {
   try {
     const { questionId } = req.params;
-    const userId = req.user?.userId;
+    const googleId = req.user?.googleId; // ✅ FIXED: use correct property from decoded token
 
-    if (!userId) {
+    if (!googleId) {
       return res.status(403).json({ message: "Not authorized" });
     }
 
     const result = await db.collection("users").updateOne(
-      { googleId: userId },
+      { googleId },
       {
         $pull: {
           unanswered: { _id: new ObjectId(questionId) },

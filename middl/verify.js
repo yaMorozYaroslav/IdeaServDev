@@ -2,18 +2,23 @@ import jwt from "jsonwebtoken";
 import db from "../conn.js";
 import { ObjectId } from "mongodb";
 
-// ✅ Middleware to verify access token from cookies
+/**
+ * ✅ Middleware to verify access token from cookies
+ * Attaches decoded user to req.user
+ */
 export function verifyToken(req, res, next) {
   const token = req.cookies?.access_token;
 
+  console.log("🔍 Incoming DELETE request cookies:", req.cookies);
+  console.log("🔑 access_token:", token);
+
   if (!token) {
-    console.warn("⚠️ No access token provided.");
     return res.status(401).json({ message: "Unauthorized: No token" });
   }
 
   try {
-    const JWT_SECRET = process.env.JWT_SECRET || "test";
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || "test");
+    console.log("✅ Token decoded:", decoded);
 
     req.user = {
       googleId: decoded.userId,
@@ -25,18 +30,15 @@ export function verifyToken(req, res, next) {
 
     next();
   } catch (err) {
-    console.error("❌ Invalid access token:", err.message);
+    console.error("❌ Invalid token:", err.message);
     return res.status(401).json({ message: "Unauthorized: Invalid token" });
   }
 }
 
-// ✅ Middleware to check if user can delete a general question
 export async function canDeleteQuest(req, res, next) {
   try {
     const { questionId } = req.params;
-    const questionsCollection = db.collection("questions");
-
-    const question = await questionsCollection.findOne({
+    const question = await db.collection("questions").findOne({
       _id: new ObjectId(questionId),
     });
 
@@ -44,8 +46,8 @@ export async function canDeleteQuest(req, res, next) {
       return res.status(404).json({ message: "Question not found" });
     }
 
-    const user = req.user;
     const ipAddress = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    const user = req.user;
 
     const isOwner = question.authorId === user?.googleId;
     const isAdmin = user?.status === "admin";
@@ -55,6 +57,12 @@ export async function canDeleteQuest(req, res, next) {
       return next();
     }
 
+    console.warn("🚫 Deletion not authorized: ", {
+      user: user?.googleId,
+      questionAuthor: question.authorId,
+      ipMatch: isSameIp,
+    });
+
     return res.status(403).json({ message: "Forbidden: You can't delete this question" });
   } catch (err) {
     console.error("❌ Error in canDeleteQuest:", err);
@@ -62,13 +70,14 @@ export async function canDeleteQuest(req, res, next) {
   }
 }
 
-// ✅ Middleware to check if user can delete an answer
+/**
+ * ✅ Middleware to authorize deletion of an answer
+ * Permits: answer author, question author, or admin
+ */
 export async function canDeleteAnswer(req, res, next) {
   try {
     const { questionId, answerId } = req.params;
-    const questionsCollection = db.collection("questions");
-
-    const question = await questionsCollection.findOne({
+    const question = await db.collection("questions").findOne({
       _id: new ObjectId(questionId),
     });
 
@@ -76,7 +85,7 @@ export async function canDeleteAnswer(req, res, next) {
       return res.status(404).json({ message: "Question not found" });
     }
 
-    const answer = question.answers.find(a => a._id.toString() === answerId);
+    const answer = question.answers?.find(a => a._id.toString() === answerId);
     if (!answer) {
       return res.status(404).json({ message: "Answer not found" });
     }
@@ -89,6 +98,12 @@ export async function canDeleteAnswer(req, res, next) {
     if (isOwner || isQuestionOwner || isAdmin) {
       return next();
     }
+
+    console.warn("🚫 Deletion of answer not authorized:", {
+      user: user?.googleId,
+      answerAuthor: answer.authorId,
+      questionOwner: question.authorId,
+    });
 
     return res.status(403).json({ message: "Forbidden: You can't delete this answer" });
   } catch (err) {
