@@ -1,44 +1,19 @@
-import jwt from "jsonwebtoken";
 import db from "../conn.js";
 import { ObjectId } from "mongodb";
 
-/**
- * ✅ Middleware to verify access token from cookies
- * Attaches decoded user to req.user
- */
-export function verifyToken(req, res, next) {
-  const token = req.cookies?.access_token;
-
-  console.log("🔍 Incoming DELETE request cookies:", req.cookies);
-  console.log("🔑 access_token:", token);
-
-  if (!token) {
-    return res.status(401).json({ message: "Unauthorized: No token" });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || "test");
-    console.log("✅ Token decoded:", decoded);
-
-    req.user = {
-      googleId: decoded.userId,
-      email: decoded.email,
-      name: decoded.name,
-      picture: decoded.picture,
-      status: decoded.status,
-    };
-
-    next();
-  } catch (err) {
-    console.error("❌ Invalid token:", err.message);
-    return res.status(401).json({ message: "Unauthorized: Invalid token" });
-  }
-}
-
+// ✅ Middleware to authorize deletion of a general question
 export async function canDeleteQuest(req, res, next) {
   try {
     const { questionId } = req.params;
-    const question = await db.collection("questions").findOne({
+    const { userId } = req.body;
+
+    const ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    const identifier = userId || `Anonymous_${ip}`;
+
+    const questionsCollection = db.collection("questions");
+    const usersCollection = db.collection("users");
+
+    const question = await questionsCollection.findOne({
       _id: new ObjectId(questionId),
     });
 
@@ -46,38 +21,45 @@ export async function canDeleteQuest(req, res, next) {
       return res.status(404).json({ message: "Question not found" });
     }
 
-    const ipAddress = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-    const user = req.user;
+    const adminUser = userId
+      ? await usersCollection.findOne({ googleId: userId, status: "admin" })
+      : null;
 
-    const isOwner = question.authorId === user?.googleId;
-    const isAdmin = user?.status === "admin";
-    const isSameIp = question.authorId?.startsWith("Anonymous_") && question.authorId.endsWith(ipAddress);
+    const isOwner = question.authorId === identifier;
+    const isAdmin = !!adminUser;
+    const isSameIp =
+      question.authorId?.startsWith("Anonymous_") &&
+      question.authorId.endsWith(ip);
+
+    console.log("🧾 Backend received userId:", userId);
+    console.log("🧾 Resolved identifier:", identifier);
+    console.log("📌 Question.authorId:", question.authorId);
+    console.log("🔐 isAdmin:", isAdmin);
 
     if (isOwner || isAdmin || isSameIp) {
       return next();
     }
 
-    console.warn("🚫 Deletion not authorized: ", {
-      user: user?.googleId,
-      questionAuthor: question.authorId,
-      ipMatch: isSameIp,
-    });
-
-    return res.status(403).json({ message: "Forbidden: You can't delete this question" });
+    return res.status(403).json({ message: "You are not allowed to delete this question" });
   } catch (err) {
     console.error("❌ Error in canDeleteQuest:", err);
     return res.status(500).json({ message: "Internal server error" });
   }
 }
 
-/**
- * ✅ Middleware to authorize deletion of an answer
- * Permits: answer author, question author, or admin
- */
+// ✅ Middleware to authorize deletion of an answer
 export async function canDeleteAnswer(req, res, next) {
   try {
     const { questionId, answerId } = req.params;
-    const question = await db.collection("questions").findOne({
+    const { userId } = req.body;
+
+    const ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    const identifier = userId || `Anonymous_${ip}`;
+
+    const questionsCollection = db.collection("questions");
+    const usersCollection = db.collection("users");
+
+    const question = await questionsCollection.findOne({
       _id: new ObjectId(questionId),
     });
 
@@ -85,29 +67,78 @@ export async function canDeleteAnswer(req, res, next) {
       return res.status(404).json({ message: "Question not found" });
     }
 
-    const answer = question.answers?.find(a => a._id.toString() === answerId);
+    const answer = question.answers?.find((a) => a._id.toString() === answerId);
     if (!answer) {
       return res.status(404).json({ message: "Answer not found" });
     }
 
-    const user = req.user;
-    const isOwner = answer.authorId === user?.googleId;
-    const isQuestionOwner = question.authorId === user?.googleId;
-    const isAdmin = user?.status === "admin";
+    const adminUser = userId
+      ? await usersCollection.findOne({ googleId: userId, status: "admin" })
+      : null;
+
+    const isOwner = answer.authorId === identifier;
+    const isQuestionOwner = question.authorId === identifier;
+    const isAdmin = !!adminUser;
 
     if (isOwner || isQuestionOwner || isAdmin) {
       return next();
     }
 
     console.warn("🚫 Deletion of answer not authorized:", {
-      user: user?.googleId,
+      user: userId,
       answerAuthor: answer.authorId,
       questionOwner: question.authorId,
     });
 
-    return res.status(403).json({ message: "Forbidden: You can't delete this answer" });
+    return res.status(403).json({ message: "You are not allowed to delete this answer" });
   } catch (err) {
     console.error("❌ Error in canDeleteAnswer:", err);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+}
+// ✅ Personal question delete: check inside users.unanswered and users.answered
+export async function canDeletePersonalQuestion(req, res, next) {
+  try {
+    const { questionId } = req.params;
+    const { userId } = req.body;
+    const ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    const identifier = userId || `Anonymous_${ip}`;
+
+    const userDoc = await db.collection("users").findOne({
+      $or: [
+        { "unanswered._id": new ObjectId(questionId) },
+        { "answered._id": new ObjectId(questionId) },
+      ]
+    });
+
+    if (!userDoc) {
+      return res.status(404).json({ message: "Question not found" });
+    }
+
+    const match =
+      userDoc.unanswered.find(q => q._id.toString() === questionId) ||
+      userDoc.answered.find(q => q._id.toString() === questionId);
+
+    if (!match) {
+      return res.status(404).json({ message: "Question not found in lists" });
+    }
+
+    const admin = userId
+      ? await db.collection("users").findOne({ googleId: userId, status: "admin" })
+      : null;
+
+    const isOwner = match.authorId === identifier;
+    const isAdmin = !!admin;
+    const isSameIp =
+      match.authorId?.startsWith("Anonymous_") && match.authorId.endsWith(ip);
+
+    if (isOwner || isAdmin || isSameIp) {
+      return next();
+    }
+
+    return res.status(403).json({ message: "You are not allowed to delete this personal question" });
+  } catch (err) {
+    console.error("❌ Error in canDeletePersonalQuestion:", err);
     return res.status(500).json({ message: "Internal server error" });
   }
 }
