@@ -10,8 +10,8 @@ export async function createPersonalQuestion(req, res) {
       return res.status(400).json({ message: "Title cannot be empty" });
     }
 
-    const ipAddress = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-    const identifier = userId || `Anonymous_${ipAddress}`;
+    const ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+    const identifier = userId || `Anonymous_${ip}`;
     const displayName = name || "Anonymous";
 
     const newQuestion = {
@@ -54,16 +54,15 @@ export async function answerPersonalQuestion(req, res) {
       return res.status(404).json({ message: "User not found by Google ID" });
     }
 
-    const unansweredIndex = user.unanswered.findIndex(
+    const questionIndex = user.unanswered.findIndex(
       (q) => q._id.toString() === questionId
     );
 
-    if (unansweredIndex === -1) {
+    if (questionIndex === -1) {
       return res.status(404).json({ message: "Question not found in unanswered list" });
     }
 
-    const question = user.unanswered[unansweredIndex];
-
+    const question = user.unanswered[questionIndex];
     const answeredQuestion = {
       ...question,
       answer: content.trim(),
@@ -85,30 +84,29 @@ export async function answerPersonalQuestion(req, res) {
   }
 }
 
-// ✅ Delete a personal question (supports owner, admin, anonymous by IP)
+// ✅ Delete a personal question (by author or admin)
 export async function deletePersonalQuestion(req, res) {
   try {
     const { questionId } = req.params;
-    const { userId } = req.body;
+    let { userId } = req.body;
 
     const ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-    const anonymousId = `Anonymous_${ip}`;
+    const identifier = userId || `Anonymous_${ip}`;
 
     const usersCollection = db.collection("users");
 
     // Check if user is admin
-    let isAdmin = false;
-    if (userId) {
-      const adminUser = await usersCollection.findOne({ googleId: userId, status: "admin" });
-      isAdmin = !!adminUser;
-    }
+    const adminUser = userId
+      ? await usersCollection.findOne({ googleId: userId, status: "admin" })
+      : null;
+    const isAdmin = !!adminUser;
 
     const result = await usersCollection.updateOne(
       {
         $or: [
-          { googleId: userId },
-          { "unanswered.authorId": anonymousId },
-          { "answered.authorId": anonymousId },
+          { "unanswered._id": new ObjectId(questionId), "unanswered.authorId": identifier },
+          { "answered._id": new ObjectId(questionId), "answered.authorId": identifier },
+          ...(isAdmin ? [{}] : []), // allow admin to delete any
         ],
       },
       {
@@ -119,12 +117,13 @@ export async function deletePersonalQuestion(req, res) {
       }
     );
 
-    if (result.modifiedCount === 0 && !isAdmin) {
-      return res.status(403).json({ message: "You are not allowed to delete this question" });
-    }
+    console.log("🧾 Backend received userId:", userId);
+    console.log("🧾 Resolved identifier:", identifier);
+    console.log("🔐 isAdmin:", isAdmin);
+    console.log("🧹 Deletion result:", result.modifiedCount);
 
     if (result.modifiedCount === 0) {
-      return res.status(404).json({ message: "Question not found" });
+      return res.status(403).json({ message: "You are not allowed to delete this question" });
     }
 
     res.status(200).json({ message: "Question deleted successfully" });

@@ -169,13 +169,19 @@ export async function deleteQuestion(req, res) {
     }
     const isAdmin = !!adminUser;
 
+    console.log("🧾 Backend received userId:", userId);
+console.log("🧾 Resolved identifier:", identifier);
+console.log("📌 Question.authorId:", question.authorId);
+console.log("🔐 isAdmin:", isAdmin);
+
+
     if (question.authorId === identifier || isAdmin) {
       await questionsCollection.deleteOne({ _id: new ObjectId(questionId) });
       return res.status(200).json({ message: "Question deleted successfully" });
     }
 
     return res.status(403).json({ message: "You are not allowed to delete this question" });
-
+   
   } catch (error) {
     console.error("Error deleting question:", error);
     res.status(500).json({ message: "Failed to delete question" });
