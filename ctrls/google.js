@@ -23,7 +23,8 @@ export async function getPublicUserProfile(req, res) {
       }
     }
 
-    const isOwner = requesterId === userId;
+    const isOwner = requesterId?.toString() === userId?.toString();
+
 
     // 👇 Projection logic: include `unanswered` only if it's the profile owner
     const projection = {
