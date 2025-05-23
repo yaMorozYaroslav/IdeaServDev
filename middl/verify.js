@@ -96,49 +96,65 @@ export async function canDeleteAnswer(req, res, next) {
     return res.status(500).json({ message: "Internal server error" });
   }
 }
-// ✅ Personal question delete: check inside users.unanswered and users.answered
-export async function canDeletePersonalQuestion(req, res, next) {
+export async function canDeletePersonalQuestion(req, res) {
   try {
     const { questionId } = req.params;
-    const { userId } = req.body;
+    let { userId } = req.body;
+
     const ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
     const identifier = userId || `Anonymous_${ip}`;
 
-    const userDoc = await db.collection("users").findOne({
+    const usersCollection = db.collection("users");
+
+    const targetUser = await usersCollection.findOne({
       $or: [
         { "unanswered._id": new ObjectId(questionId) },
         { "answered._id": new ObjectId(questionId) },
-      ]
+      ],
     });
 
-    if (!userDoc) {
+    if (!targetUser) {
       return res.status(404).json({ message: "Question not found" });
     }
 
-    const match =
-      userDoc.unanswered.find(q => q._id.toString() === questionId) ||
-      userDoc.answered.find(q => q._id.toString() === questionId);
+    const isOwner = targetUser.googleId === userId; // ✅ profile owner
+    const isAuthor =
+      targetUser.unanswered?.some(q => q._id.toString() === questionId && q.authorId === identifier) ||
+      targetUser.answered?.some(q => q._id.toString() === questionId && q.authorId === identifier);
 
-    if (!match) {
-      return res.status(404).json({ message: "Question not found in lists" });
-    }
-
-    const admin = userId
-      ? await db.collection("users").findOne({ googleId: userId, status: "admin" })
+    const adminUser = userId
+      ? await usersCollection.findOne({ googleId: userId, status: "admin" })
       : null;
 
-    const isOwner = match.authorId === identifier;
-    const isAdmin = !!admin;
-    const isSameIp =
-      match.authorId?.startsWith("Anonymous_") && match.authorId.endsWith(ip);
+    const isAdmin = !!adminUser;
 
-    if (isOwner || isAdmin || isSameIp) {
-      return next();
+    console.log("🧾 Backend received userId:", userId);
+    console.log("🧾 Resolved identifier:", identifier);
+    console.log("🔐 isAdmin:", isAdmin);
+    console.log("👤 isProfileOwner:", isOwner);
+    console.log("✍️ isAuthor:", isAuthor);
+
+    if (!(isOwner || isAuthor || isAdmin)) {
+      return res.status(403).json({ message: "You are not allowed to delete this personal question" });
     }
 
-    return res.status(403).json({ message: "You are not allowed to delete this personal question" });
+    const result = await usersCollection.updateOne(
+      { _id: targetUser._id },
+      {
+        $pull: {
+          unanswered: { _id: new ObjectId(questionId) },
+          answered: { _id: new ObjectId(questionId) },
+        },
+      }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({ message: "Question not found or already deleted" });
+    }
+
+    res.status(200).json({ message: "Question deleted successfully" });
   } catch (err) {
-    console.error("❌ Error in canDeletePersonalQuestion:", err);
-    return res.status(500).json({ message: "Internal server error" });
+    console.error("❌ Error deleting personal question:", err);
+    res.status(500).json({ message: "Failed to delete question" });
   }
 }
