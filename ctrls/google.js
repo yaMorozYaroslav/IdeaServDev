@@ -6,36 +6,16 @@ import { ObjectId } from "mongodb";
 export async function getPublicUserProfile(req, res) {
   try {
     const { userId } = req.params;
+    const { requesterId } = req.body;
 
-    // 🧠 Parse cookies manually from headers
-    const rawCookie = req.headers.cookie
-      ?.split("; ")
-      .find((c) => c.startsWith("user_data="));
+    const isOwner = requesterId === userId;
 
-    let requesterId = null;
-
-    if (rawCookie) {
-      try {
-        const decoded = JSON.parse(decodeURIComponent(rawCookie.split("=")[1]));
-        requesterId = decoded.userId;
-      } catch (err) {
-        console.error("❌ Failed to parse user_data cookie:", err);
-      }
-    }
-
-    const isOwner = requesterId?.toString() === userId?.toString();
-
-    console.log("🔍 requesterId:", requesterId);
-console.log("👤 profile userId (param):", userId);
-console.log("🏷️ isOwner:", isOwner);
-
-    // 👇 Projection logic: include `unanswered` only if it's the profile owner
     const projection = {
       name: 1,
       picture: 1,
       googleId: 1,
       answered: 1,
-      ...(isOwner ? { unanswered: 1 } : {})
+      ...(isOwner ? { unanswered: 1 } : {}), // ✅ only for owner
     };
 
     const user = await db.collection("users").findOne(
@@ -43,17 +23,14 @@ console.log("🏷️ isOwner:", isOwner);
       { projection }
     );
 
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-    res.status(200).json({ ...user, isOwner });
-  } catch (error) {
-    console.error("❌ Error fetching public user profile:", error);
-    res.status(500).json({ message: "Failed to fetch user profile" });
+    res.status(200).json(user);
+  } catch (err) {
+    console.error("❌ getPublicUserProfile error:", err);
+    res.status(500).json({ message: "Failed to fetch user" });
   }
 }
-
 
 // 🔐 OAuth login callback
 export async function handleOAuthCallback(req, res) {
