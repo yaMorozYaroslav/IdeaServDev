@@ -15,6 +15,6 @@ router.post('/logout', logoutUser);
 router.post('/refresh', refreshToken);
 
 // ✅ New route: public user profile with answered questions
-router.get('/public/:userId', getPublicUserProfile);
+router.post('/public/:userId', getPublicUserProfile);
 
 export default router;
