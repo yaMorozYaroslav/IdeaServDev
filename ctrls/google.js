@@ -6,7 +6,17 @@ import { ObjectId } from "mongodb";
 export async function getPublicUserProfile(req, res) {
   try {
     const { userId } = req.params;
-    const { requesterId } = req.body;
+
+    // Safely get requesterId from body, or default to null
+    let requesterId = null;
+
+    if (req.headers["content-type"] === "application/json") {
+      try {
+        requesterId = req.body?.requesterId ?? null;
+      } catch {
+        requesterId = null;
+      }
+    }
 
     const isOwner = requesterId === userId;
 
@@ -15,7 +25,7 @@ export async function getPublicUserProfile(req, res) {
       picture: 1,
       googleId: 1,
       answered: 1,
-      ...(isOwner ? { unanswered: 1 } : {}), // ✅ only for owner
+      ...(isOwner ? { unanswered: 1 } : {}),
     };
 
     const user = await db.collection("users").findOne(
@@ -23,7 +33,10 @@ export async function getPublicUserProfile(req, res) {
       { projection }
     );
 
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) {
+      console.warn("⚠️ User not found for googleId:", userId);
+      return res.status(404).json({ message: "User not found" });
+    }
 
     res.status(200).json(user);
   } catch (err) {
