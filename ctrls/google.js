@@ -6,17 +6,7 @@ import { ObjectId } from "mongodb";
 export async function getPublicUserProfile(req, res) {
   try {
     const { userId } = req.params;
-
-    // Safely get requesterId from body, or default to null
-    let requesterId = null;
-
-    if (req.headers["content-type"] === "application/json") {
-      try {
-        requesterId = req.body?.requesterId ?? null;
-      } catch {
-        requesterId = null;
-      }
-    }
+    const requesterId = req.query.requesterId || null;
 
     const isOwner = requesterId === userId;
 
