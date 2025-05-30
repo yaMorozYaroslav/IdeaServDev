@@ -3,10 +3,12 @@ import jwt from "jsonwebtoken";
 import db from "../conn.js";
 import { ObjectId } from "mongodb";
 
+// controllers/google.js
+
 export async function getPublicUserProfile(req, res) {
   try {
     const { userId } = req.params;
-    const requesterId = req.query.requesterId || null;
+    const { requesterId } = req.body || {};
 
     const isOwner = requesterId === userId;
 
@@ -15,7 +17,7 @@ export async function getPublicUserProfile(req, res) {
       picture: 1,
       googleId: 1,
       answered: 1,
-      ...(isOwner ? { unanswered: 1 } : {}),
+      ...(isOwner ? { unanswered: 1 } : {}), // show `unanswered` only to owner
     };
 
     const user = await db.collection("users").findOne(
@@ -34,6 +36,7 @@ export async function getPublicUserProfile(req, res) {
     res.status(500).json({ message: "Failed to fetch user" });
   }
 }
+
 
 // 🔐 OAuth login callback
 export async function handleOAuthCallback(req, res) {
