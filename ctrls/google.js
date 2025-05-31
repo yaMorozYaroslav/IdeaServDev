@@ -3,40 +3,51 @@ import jwt from "jsonwebtoken";
 import db from "../conn.js";
 import { ObjectId } from "mongodb";
 
-// controllers/google.js
-
 export async function getPublicUserProfile(req, res) {
   try {
     const { userId } = req.params;
-    const { requesterId } = req.body || {};
+
+    console.log("🔍 POST /google/public/:userId");
+    console.log("🧠 userId param:", userId);
+    console.log("📥 raw body:", req.body);
+    const users = await db.collection("users").find().toArray();
+console.log("📋 All users in DB:", users.map(u => u.googleId));
+
+    let requesterId = null;
+
+    if (req.body?.token) {
+      try {
+        const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET || "test");
+        requesterId = decoded.userId;
+        console.log("🔐 decoded token userId:", requesterId);
+      } catch (err) {
+        console.warn("⚠️ Failed to verify token:", err.message);
+      }
+    }
 
     const isOwner = requesterId === userId;
-
     const projection = {
       name: 1,
       picture: 1,
       googleId: 1,
       answered: 1,
-      ...(isOwner ? { unanswered: 1 } : {}), // show `unanswered` only to owner
+      ...(isOwner ? { unanswered: 1 } : {}),
     };
 
-    const user = await db.collection("users").findOne(
-      { googleId: userId },
-      { projection }
-    );
+    const query = { googleId: userId };
+    const user = await db.collection("users").findOne(query, { projection });
 
     if (!user) {
-      console.warn("⚠️ User not found for googleId:", userId);
+      console.warn("❌ No user found in DB for googleId:", userId);
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.status(200).json(user);
+    return res.status(200).json(user);
   } catch (err) {
     console.error("❌ getPublicUserProfile error:", err);
-    res.status(500).json({ message: "Failed to fetch user" });
+    return res.status(500).json({ message: "Failed to fetch user" });
   }
 }
-
 
 // 🔐 OAuth login callback
 export async function handleOAuthCallback(req, res) {
