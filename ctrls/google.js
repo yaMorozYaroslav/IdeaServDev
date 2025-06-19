@@ -50,11 +50,16 @@ console.log("📋 All users in DB:", users.map(u => u.googleId));
 }
 
 // 🔐 OAuth login callback
-export async function handleOAuthCallback(req, res) {
+ export async function handleOAuthCallback(req, res) {
+  console.log("🚀 Reached /google/oauth/callback");
+
   const code = req.query.code;
+  console.log("🔑 OAuth code received:", code);
+
   if (!code) {
     return res.status(400).json({ message: "Authorization code is missing" });
   }
+
 
   try {
     const host = req.headers.host;
@@ -143,10 +148,10 @@ export async function handleOAuthCallback(req, res) {
       { expiresIn: "7d" }
     );
 
-    const redirectUrl = `${clientRedirectBase}/api/store-tokens?access_token=${encodeURIComponent(
+    const redirectUrl = `http://localhost:3000/api/store-tokens?access_token=${encodeURIComponent(
       accessToken
     )}&refresh_token=${encodeURIComponent(refreshToken)}`;
-
+    console.log(clientRedirectBase||'l')
     console.log("✅ Redirecting to:", redirectUrl);
     res.redirect(redirectUrl);
   } catch (error) {

@@ -1,19 +1,13 @@
-import { MongoClient } from "mongodb"
+import { MongoClient } from "mongodb";
+import dotenv from "dotenv";
+dotenv.config();
 
-import dotenv from 'dotenv'
-dotenv.config()
+const connectionString = process.env.CONNECTION_URL || "";
+const client = new MongoClient(connectionString);
 
-const connectionString = process.env.CONNECTION_URL || ""
-//info
-const client = new MongoClient(connectionString)
+await client.connect(); // ✅ top-level await
+console.log("✅ Connected to MongoDB");
 
-let conn;
-try {
-  conn = await client.connect()
-} catch(e) {
-  console.error(e)
-}
+const db = client.db("IdeaDatabase");
 
-const db = conn.db("IdeaDatabase")
-
-export default db
+export default db; // ✅ now this is a fully connected DB object
