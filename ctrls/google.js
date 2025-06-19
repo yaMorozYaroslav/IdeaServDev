@@ -148,9 +148,9 @@ console.log("📋 All users in DB:", users.map(u => u.googleId));
       { expiresIn: "7d" }
     );
 
-    const redirectUrl = `${clientRedirectBase}/api/store-tokens?access_token=${encodeURIComponent(
-  accessToken
-  )}&refresh_token=${encodeURIComponent(refreshToken)}`;
+  const encodedUserData = encodeURIComponent(JSON.stringify(userData));
+  const redirectUrl = `${clientRedirectBase}/popup?access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}&user_data=${encodedUserData}`;
+
   
   console.log("✅ Redirecting to:", redirectUrl);
   res.redirect(redirectUrl);
