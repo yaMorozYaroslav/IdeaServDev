@@ -3,23 +3,18 @@ import jwt from "jsonwebtoken";
 import db from "../conn.js";
 import { ObjectId } from "mongodb";
 
+// 🔍 Public profile route
 export async function getPublicUserProfile(req, res) {
   try {
     const { userId } = req.params;
-
-    console.log("🔍 POST /google/public/:userId");
-    console.log("🧠 userId param:", userId);
-    console.log("📥 raw body:", req.body);
     const users = await db.collection("users").find().toArray();
-console.log("📋 All users in DB:", users.map(u => u.googleId));
+    console.log("📋 All users in DB:", users.map(u => u.googleId));
 
     let requesterId = null;
-
     if (req.body?.token) {
       try {
         const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET || "test");
         requesterId = decoded.userId;
-        console.log("🔐 decoded token userId:", requesterId);
       } catch (err) {
         console.warn("⚠️ Failed to verify token:", err.message);
       }
@@ -34,13 +29,9 @@ console.log("📋 All users in DB:", users.map(u => u.googleId));
       ...(isOwner ? { unanswered: 1 } : {}),
     };
 
-    const query = { googleId: userId };
-    const user = await db.collection("users").findOne(query, { projection });
+    const user = await db.collection("users").findOne({ googleId: userId }, { projection });
 
-    if (!user) {
-      console.warn("❌ No user found in DB for googleId:", userId);
-      return res.status(404).json({ message: "User not found" });
-    }
+    if (!user) return res.status(404).json({ message: "User not found" });
 
     return res.status(200).json(user);
   } catch (err) {
@@ -50,16 +41,11 @@ console.log("📋 All users in DB:", users.map(u => u.googleId));
 }
 
 // 🔐 OAuth login callback
- export async function handleOAuthCallback(req, res) {
+export async function handleOAuthCallback(req, res) {
   console.log("🚀 Reached /google/oauth/callback");
 
   const code = req.query.code;
-  console.log("🔑 OAuth code received:", code);
-
-  if (!code) {
-    return res.status(400).json({ message: "Authorization code is missing" });
-  }
-
+  if (!code) return res.status(400).json({ message: "Authorization code is missing" });
 
   try {
     const host = req.headers.host;
@@ -74,7 +60,7 @@ console.log("📋 All users in DB:", users.map(u => u.googleId));
       clientRedirectBase = "https://idea-sphere-dev.vercel.app";
     }
 
-    // Exchange auth code for access token
+    // 🔄 Exchange code for token
     const tokenResponse = await axios.post(
       "https://oauth2.googleapis.com/token",
       new URLSearchParams({
@@ -84,21 +70,15 @@ console.log("📋 All users in DB:", users.map(u => u.googleId));
         redirect_uri: REDIRECT_URI,
         grant_type: "authorization_code",
       }).toString(),
-      {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      }
+      { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
     );
 
     const tokens = tokenResponse.data;
 
-    // Fetch Google profile
+    // 👤 Fetch Google profile
     const profileResponse = await axios.get(
       "https://openidconnect.googleapis.com/v1/userinfo",
-      {
-        headers: {
-          Authorization: `Bearer ${tokens.access_token}`,
-        },
-      }
+      { headers: { Authorization: `Bearer ${tokens.access_token}` } }
     );
 
     const profile = profileResponse.data;
@@ -140,21 +120,29 @@ console.log("📋 All users in DB:", users.map(u => u.googleId));
     );
 
     const refreshToken = jwt.sign(
-      {
-        userId: user.googleId,
-        email: user.email,
-      },
+      { userId: user.googleId, email: user.email },
       JWT_SECRET,
       { expiresIn: "7d" }
     );
 
-  const encodedUserData = encodeURIComponent(JSON.stringify(userData));
-  const redirectUrl = `${clientRedirectBase}/popup?access_token=${encodeURIComponent(accessToken)}&refresh_token=${encodeURIComponent(refreshToken)}&user_data=${encodedUserData}`;
+    // ✅ Build userData and safe redirect
+    const userData = {
+      userId: user.googleId,
+      email: user.email,
+      name: user.name,
+      picture: user.picture,
+      status: user.status,
+      unanswered: dbUser?.unanswered || [],
+    };
 
-  
-  console.log("✅ Redirecting to:", redirectUrl);
-  res.redirect(redirectUrl);
-  
+    const encodedUserData = encodeURIComponent(JSON.stringify(userData));
+
+    const redirectUrl = `${clientRedirectBase}/popup?access_token=${encodeURIComponent(
+      accessToken
+    )}&refresh_token=${encodeURIComponent(refreshToken)}&user_data=${encodedUserData}`;
+
+    console.log("✅ Redirecting to:", redirectUrl);
+    res.redirect(redirectUrl);
   } catch (error) {
     console.error("❌ OAuth callback failed:", error.response?.data || error.message);
     res.status(500).json({
@@ -164,7 +152,7 @@ console.log("📋 All users in DB:", users.map(u => u.googleId));
   }
 }
 
-// 🔐 Get user from token
+// 🔐 Get user from access token
 export async function getUserData(req, res) {
   const { accessToken } = req.body;
 
@@ -175,13 +163,10 @@ export async function getUserData(req, res) {
   try {
     const user = jwt.verify(accessToken, process.env.JWT_SECRET || "test");
 
-    const usersCollection = db.collection("users");
-    const dbUser = await usersCollection.findOne(
+    const dbUser = await db.collection("users").findOne(
       { googleId: user.userId },
       { projection: { unanswered: 1 } }
     );
-
-    const unanswered = dbUser?.unanswered || [];
 
     res.json({
       id: user.userId,
@@ -189,8 +174,7 @@ export async function getUserData(req, res) {
       email: user.email,
       picture: user.picture,
       status: user.status,
-      username: user.username,
-      unanswered,
+      unanswered: dbUser?.unanswered || [],
     });
   } catch (err) {
     console.error("Token verification failed:", err);
@@ -203,26 +187,21 @@ export function logoutUser(req, res) {
   res.clearCookie("access_token", { httpOnly: true, sameSite: "None", secure: true });
   res.clearCookie("refresh_token", { httpOnly: true, sameSite: "None", secure: true });
   res.clearCookie("user_data", { httpOnly: false, sameSite: "Lax", secure: true });
-
   res.status(200).json({ message: "Logged out successfully" });
 }
 
+// 🔁 Refresh token
 export async function refreshToken(req, res) {
   const { refreshToken } = req.body;
 
   if (!refreshToken) {
-    console.log("⛔ No refresh token provided");
     return res.status(401).json({ message: "No refresh token provided" });
   }
 
   try {
     const JWT_SECRET = process.env.JWT_SECRET || "test";
-
-    // 🔍 Decode and inspect the refresh token payload
     const decoded = jwt.verify(refreshToken, JWT_SECRET);
-    console.log("🧪 Decoded refresh token payload:", decoded);
 
-    // 🔍 Look for the user by googleId = decoded.userId
     const user = await db.collection("users").findOne(
       { googleId: decoded.userId },
       {
@@ -237,17 +216,13 @@ export async function refreshToken(req, res) {
       }
     );
 
-    console.log("📄 Found user from DB:", user);
-
     if (!user) {
-      console.log("❌ No user found for googleId:", decoded.userId);
       return res.status(404).json({ message: "User not found" });
     }
 
-    // 🔐 Generate a new access token using googleId
     const newAccessToken = jwt.sign(
       {
-        userId: user.googleId, // ✅ Ensure googleId is encoded as userId
+        userId: user.googleId,
         email: user.email,
         name: user.name,
         picture: user.picture,
@@ -258,7 +233,6 @@ export async function refreshToken(req, res) {
       { expiresIn: "15m" }
     );
 
-    // 📦 Build the userData object that gets returned to frontend
     const userData = {
       userId: user.googleId,
       email: user.email,
@@ -268,19 +242,12 @@ export async function refreshToken(req, res) {
       unanswered: user.unanswered || [],
     };
 
-    console.log("📦 Returning refreshed accessToken and userData:", {
-      accessToken: newAccessToken,
-      userData,
-    });
-
     return res.json({ accessToken: newAccessToken, userData });
   } catch (error) {
     console.error("❌ Refresh token error:", error);
-
     res.clearCookie("access_token");
     res.clearCookie("refresh_token");
     res.clearCookie("user_data");
-
     return res.status(401).json({ message: "Invalid or expired refresh token" });
   }
 }
