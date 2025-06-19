@@ -220,19 +220,6 @@ export async function refreshToken(req, res) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const newAccessToken = jwt.sign(
-      {
-        userId: user.googleId,
-        email: user.email,
-        name: user.name,
-        picture: user.picture,
-        status: user.status,
-        unanswered: user.unanswered || [],
-      },
-      JWT_SECRET,
-      { expiresIn: "15m" }
-    );
-
     const userData = {
       userId: user.googleId,
       email: user.email,
@@ -242,7 +229,12 @@ export async function refreshToken(req, res) {
       unanswered: user.unanswered || [],
     };
 
-    return res.json({ accessToken: newAccessToken, userData });
+    const newAccessToken = jwt.sign(userData, JWT_SECRET, { expiresIn: "15m" });
+
+    return res.json({
+      accessToken: newAccessToken,
+      userData, // ✅ Always return full userData!
+    });
   } catch (error) {
     console.error("❌ Refresh token error:", error);
     res.clearCookie("access_token");
