@@ -148,12 +148,13 @@ console.log("📋 All users in DB:", users.map(u => u.googleId));
       { expiresIn: "7d" }
     );
 
-    const redirectUrl = `http://localhost:3000/api/store-tokens?access_token=${encodeURIComponent(
-      accessToken
-    )}&refresh_token=${encodeURIComponent(refreshToken)}`;
-    console.log(clientRedirectBase||'l')
-    console.log("✅ Redirecting to:", redirectUrl);
-    res.redirect(redirectUrl);
+    const redirectUrl = `${clientRedirectBase}/api/store-tokens?access_token=${encodeURIComponent(
+  accessToken
+  )}&refresh_token=${encodeURIComponent(refreshToken)}`;
+  
+  console.log("✅ Redirecting to:", redirectUrl);
+  res.redirect(redirectUrl);
+  
   } catch (error) {
     console.error("❌ OAuth callback failed:", error.response?.data || error.message);
     res.status(500).json({
