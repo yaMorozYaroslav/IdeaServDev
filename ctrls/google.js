@@ -7,20 +7,21 @@ import { ObjectId } from "mongodb";
 export async function getPublicUserProfile(req, res) {
   try {
     const { userId } = req.params;
-    const users = await db.collection("users").find().toArray();
-    console.log("📋 All users in DB:", users.map(u => u.googleId));
 
+    // Optional token
     let requesterId = null;
-    if (req.body?.token) {
-      try {
+
+    try {
+      if (req.body?.token) {
         const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET || "test");
         requesterId = decoded.userId;
-      } catch (err) {
-        console.warn("⚠️ Failed to verify token:", err.message);
       }
+    } catch (err) {
+      console.warn("⚠️ Token verification failed, continuing as anonymous:", err.message);
     }
 
     const isOwner = requesterId === userId;
+
     const projection = {
       name: 1,
       picture: 1,
@@ -31,7 +32,9 @@ export async function getPublicUserProfile(req, res) {
 
     const user = await db.collection("users").findOne({ googleId: userId }, { projection });
 
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
 
     return res.status(200).json(user);
   } catch (err) {
