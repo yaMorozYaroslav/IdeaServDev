@@ -193,18 +193,19 @@ export function logoutUser(req, res) {
   res.status(200).json({ message: "Logged out successfully" });
 }
 
-// 🔁 Refresh token
+// 🔁 Refresh token controller for Express backend
 export async function refreshToken(req, res) {
-  const { refreshToken } = req.body;
+  const { refreshToken: token } = req.body;
 
-  if (!refreshToken) {
+  if (!token) {
     return res.status(401).json({ message: "No refresh token provided" });
   }
 
   try {
     const JWT_SECRET = process.env.JWT_SECRET || "test";
-    const decoded = jwt.verify(refreshToken, JWT_SECRET);
 
+    // 🛡️ Verify token
+    const decoded = jwt.verify(token, JWT_SECRET);
     const user = await db.collection("users").findOne(
       { googleId: decoded.userId },
       {
@@ -223,6 +224,7 @@ export async function refreshToken(req, res) {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // 🧠 Build user data
     const userData = {
       userId: user.googleId,
       email: user.email,
@@ -232,17 +234,21 @@ export async function refreshToken(req, res) {
       unanswered: user.unanswered || [],
     };
 
+    // 🎟️ Sign new access token
     const newAccessToken = jwt.sign(userData, JWT_SECRET, { expiresIn: "15m" });
 
-    return res.json({
+    // ✅ Respond with token and userData
+    return res.status(200).json({
       accessToken: newAccessToken,
-      userData, // ✅ Always return full userData!
+      userData,
     });
   } catch (error) {
-    console.error("❌ Refresh token error:", error);
+    console.error("❌ Refresh token error:", error.message);
     res.clearCookie("access_token");
     res.clearCookie("refresh_token");
     res.clearCookie("user_data");
     return res.status(401).json({ message: "Invalid or expired refresh token" });
   }
 }
+
+
