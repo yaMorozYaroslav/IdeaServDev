@@ -10,7 +10,7 @@ export async function getPublicUserProfile(req, res) {
 
     // Optional token
     let requesterId = null;
-
+    
     try {
       if (req.body?.token) {
         const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET || "test");
