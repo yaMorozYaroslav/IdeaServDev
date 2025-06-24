@@ -20,7 +20,8 @@ const allowedOrigins = [
   "https://idea-sphere.vercel.app",
   "https://idea-sphere-dev.vercel.app",
   "http://localhost:3000",
-  "https://very-portfolio.vercel.app"
+  "https://very-portfolio.vercel.app",
+  "https://restninja.io"
 ];
 
 const corsOptions = {
