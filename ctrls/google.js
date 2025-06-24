@@ -7,6 +7,8 @@ import { ObjectId } from "mongodb";
 export async function getPublicUserProfile(req, res) {
   try {
     const { userId } = req.params;
+    console.log("📡 Public profile request:", req.params.userId);
+    console.log("🕵️ token?", req.body?.token);
 
     // Optional token
     let requesterId = null;
