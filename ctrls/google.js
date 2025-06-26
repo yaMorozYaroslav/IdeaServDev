@@ -45,7 +45,6 @@ export async function getPublicUserProfile(req, res) {
   }
 }
 
-// 🔐 OAuth login callback
 export async function handleOAuthCallback(req, res) {
   console.log("🚀 Reached /google/oauth/callback");
 
@@ -53,16 +52,20 @@ export async function handleOAuthCallback(req, res) {
   if (!code) return res.status(400).json({ message: "Authorization code is missing" });
 
   try {
-    const host = req.headers.host;
-    let REDIRECT_URI = "https://idea-sphere-50bb3c5bc07b.herokuapp.com/google/oauth/callback";
-    let clientRedirectBase = "https://idea-sphere.vercel.app";
+    const HOST = process.env.HOST || "PRODUCTION";
 
-    if (host?.includes("localhost")) {
+    let REDIRECT_URI = "";
+    let clientRedirectBase = "";
+
+    if (HOST === "LOCAL") {
       REDIRECT_URI = "http://localhost:5000/google/oauth/callback";
       clientRedirectBase = "http://localhost:3000";
-    } else if (host?.includes("idea-sphere-dev")) {
+    } else if (HOST === "DEVELOPMENT") {
       REDIRECT_URI = "https://idea-sphere-dev-30492dbf5e99.herokuapp.com/google/oauth/callback";
       clientRedirectBase = "https://idea-sphere-dev.vercel.app";
+    } else {
+      REDIRECT_URI = "https://idea-sphere-50bb3c5bc07b.herokuapp.com/google/oauth/callback";
+      clientRedirectBase = "https://idea-sphere.vercel.app";
     }
 
     // 🔄 Exchange code for token
@@ -130,7 +133,6 @@ export async function handleOAuthCallback(req, res) {
       { expiresIn: "7d" }
     );
 
-    // ✅ Build userData and safe redirect
     const userData = {
       userId: user.googleId,
       email: user.email,
@@ -197,17 +199,29 @@ export function logoutUser(req, res) {
 
 // 🔁 Refresh token controller for Express backend
 export async function refreshToken(req, res) {
-  const { refreshToken: token } = req.body;
-
-  if (!token) {
-    return res.status(401).json({ message: "No refresh token provided" });
-  }
+	console.log("🔥 /google/refresh HIT");
+console.log("🔥 req.body is:", req.body);
 
   try {
+
     const JWT_SECRET = process.env.JWT_SECRET || "test";
 
-    // 🛡️ Verify token
+    // 🔍 Log full incoming body
+    console.log("📥 Incoming /google/refresh request body:", req.body);
+
+    const token = req.body?.refreshToken || req.body?.token;
+    console.log("🪪 Extracted token:", token);
+
+    if (!token) {
+      console.warn("🚫 No token received in request");
+      return res.status(401).json({ message: "No refresh token provided" });
+    }
+
+    // 🛡️ Verify the token
     const decoded = jwt.verify(token, JWT_SECRET);
+    console.log("🔓 Decoded refresh token:", decoded);
+
+    // 🔍 Fetch user from database
     const user = await db.collection("users").findOne(
       { googleId: decoded.userId },
       {
@@ -223,10 +237,14 @@ export async function refreshToken(req, res) {
     );
 
     if (!user) {
+	  console.log("✅ Returning data to frontend:");
+    console.log("   - accessToken:", newAccessToken.slice(0, 30) + "...");
+    console.log("   - userData:", userData);
+      console.warn("❌ No user found with googleId:", decoded.userId);
       return res.status(404).json({ message: "User not found" });
     }
 
-    // 🧠 Build user data
+    // 🧠 Prepare userData
     const userData = {
       userId: user.googleId,
       email: user.email,
@@ -236,21 +254,21 @@ export async function refreshToken(req, res) {
       unanswered: user.unanswered || [],
     };
 
-    // 🎟️ Sign new access token
+    // 🔐 Sign new access token
     const newAccessToken = jwt.sign(userData, JWT_SECRET, { expiresIn: "15m" });
 
-    // ✅ Respond with token and userData
+
     return res.status(200).json({
       accessToken: newAccessToken,
       userData,
     });
   } catch (error) {
-    console.error("❌ Refresh token error:", error.message);
+    console.error("❌ Error in /google/refresh:", error.message);
+
     res.clearCookie("access_token");
     res.clearCookie("refresh_token");
     res.clearCookie("user_data");
+
     return res.status(401).json({ message: "Invalid or expired refresh token" });
   }
 }
-
-

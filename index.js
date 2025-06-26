@@ -28,6 +28,7 @@ const corsOptions = {
   origin: allowedOrigins,
   credentials: true,
 };
+app.use(express.json()); // ✅ ensures req.body works with JSON
 
 app.use(cors(corsOptions));
 
