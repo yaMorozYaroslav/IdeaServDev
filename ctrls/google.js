@@ -195,12 +195,16 @@ export function logoutUser(req, res) {
 // 🔁 Refresh token controller for Express backend
 export async function refreshToken(req, res) {
   console.log("🔥 /google/refresh HIT");
-  console.log("📥 Incoming request body:", req.body);
+  console.log("🔥 req.body is:", req.body);
 
   try {
     const JWT_SECRET = process.env.JWT_SECRET || "test";
+
     const token = req.body?.refreshToken || req.body?.token;
+    const rawUserData = req.body?.user_data;
+
     console.log("🪪 Extracted token:", token);
+    console.log("📦 Raw user_data:", rawUserData);
 
     if (!token) {
       console.warn("🚫 No token received in request");
@@ -229,6 +233,21 @@ export async function refreshToken(req, res) {
       return res.status(404).json({ message: "User not found" });
     }
 
+    // ✅ Accept either plain object or encoded string
+    let clientUser = {};
+    if (rawUserData) {
+      try {
+        if (typeof rawUserData === "string") {
+          clientUser = JSON.parse(decodeURIComponent(rawUserData));
+        } else {
+          clientUser = rawUserData;
+        }
+        console.log("🧾 Parsed user_data from client:", clientUser);
+      } catch (err) {
+        console.warn("⚠️ Failed to parse user_data. Ignoring:", err.message);
+      }
+    }
+
     const userData = {
       userId: user.googleId,
       email: user.email,
@@ -240,9 +259,7 @@ export async function refreshToken(req, res) {
 
     const newAccessToken = jwt.sign(userData, JWT_SECRET, { expiresIn: "15m" });
 
-    console.log("✅ Returning data to frontend:");
-    console.log("   - accessToken:", newAccessToken.slice(0, 30) + "...");
-    console.log("   - userData:", userData);
+    console.log("✅ Returning refreshed token and user data");
 
     return res.status(200).json({
       accessToken: newAccessToken,
