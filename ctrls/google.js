@@ -1,18 +1,16 @@
 import axios from "axios";
 import jwt from "jsonwebtoken";
 import db from "../conn.js";
-import { ObjectId } from "mongodb";
 
 // 🔍 Public profile route
 export async function getPublicUserProfile(req, res) {
   try {
     const { userId } = req.params;
-    console.log("📡 Public profile request:", req.params.userId);
+    console.log("📡 Public profile request:", userId);
     console.log("🕵️ token?", req.body?.token);
 
-    // Optional token
     let requesterId = null;
-    
+
     try {
       if (req.body?.token) {
         const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET || "test");
@@ -53,7 +51,6 @@ export async function handleOAuthCallback(req, res) {
 
   try {
     const HOST = process.env.HOST || "PRODUCTION";
-
     let REDIRECT_URI = "";
     let clientRedirectBase = "";
 
@@ -68,7 +65,6 @@ export async function handleOAuthCallback(req, res) {
       clientRedirectBase = "https://idea-sphere.vercel.app";
     }
 
-    // 🔄 Exchange code for token
     const tokenResponse = await axios.post(
       "https://oauth2.googleapis.com/token",
       new URLSearchParams({
@@ -83,7 +79,6 @@ export async function handleOAuthCallback(req, res) {
 
     const tokens = tokenResponse.data;
 
-    // 👤 Fetch Google profile
     const profileResponse = await axios.get(
       "https://openidconnect.googleapis.com/v1/userinfo",
       { headers: { Authorization: `Bearer ${tokens.access_token}` } }
@@ -142,11 +137,11 @@ export async function handleOAuthCallback(req, res) {
       unanswered: dbUser?.unanswered || [],
     };
 
-    const encodedUserData = encodeURIComponent(JSON.stringify(userData));
-
     const redirectUrl = `${clientRedirectBase}/popup?access_token=${encodeURIComponent(
       accessToken
-    )}&refresh_token=${encodeURIComponent(refreshToken)}&user_data=${encodedUserData}`;
+    )}&refresh_token=${encodeURIComponent(refreshToken)}&user_data=${encodeURIComponent(
+      JSON.stringify(userData)
+    )}`;
 
     console.log("✅ Redirecting to:", redirectUrl);
     res.redirect(redirectUrl);
@@ -199,16 +194,11 @@ export function logoutUser(req, res) {
 
 // 🔁 Refresh token controller for Express backend
 export async function refreshToken(req, res) {
-	console.log("🔥 /google/refresh HIT");
-console.log("🔥 req.body is:", req.body);
+  console.log("🔥 /google/refresh HIT");
+  console.log("📥 Incoming request body:", req.body);
 
   try {
-
     const JWT_SECRET = process.env.JWT_SECRET || "test";
-
-    // 🔍 Log full incoming body
-    console.log("📥 Incoming /google/refresh request body:", req.body);
-
     const token = req.body?.refreshToken || req.body?.token;
     console.log("🪪 Extracted token:", token);
 
@@ -217,11 +207,9 @@ console.log("🔥 req.body is:", req.body);
       return res.status(401).json({ message: "No refresh token provided" });
     }
 
-    // 🛡️ Verify the token
     const decoded = jwt.verify(token, JWT_SECRET);
     console.log("🔓 Decoded refresh token:", decoded);
 
-    // 🔍 Fetch user from database
     const user = await db.collection("users").findOne(
       { googleId: decoded.userId },
       {
@@ -237,14 +225,10 @@ console.log("🔥 req.body is:", req.body);
     );
 
     if (!user) {
-	  console.log("✅ Returning data to frontend:");
-    console.log("   - accessToken:", newAccessToken.slice(0, 30) + "...");
-    console.log("   - userData:", userData);
       console.warn("❌ No user found with googleId:", decoded.userId);
       return res.status(404).json({ message: "User not found" });
     }
 
-    // 🧠 Prepare userData
     const userData = {
       userId: user.googleId,
       email: user.email,
@@ -254,9 +238,11 @@ console.log("🔥 req.body is:", req.body);
       unanswered: user.unanswered || [],
     };
 
-    // 🔐 Sign new access token
     const newAccessToken = jwt.sign(userData, JWT_SECRET, { expiresIn: "15m" });
 
+    console.log("✅ Returning data to frontend:");
+    console.log("   - accessToken:", newAccessToken.slice(0, 30) + "...");
+    console.log("   - userData:", userData);
 
     return res.status(200).json({
       accessToken: newAccessToken,
