@@ -2,19 +2,19 @@ import axios from "axios";
 import jwt from "jsonwebtoken";
 import db from "../conn.js";
 
-// 🔍 Public profile route
+// 🔍 Public Profile Route
 export async function getPublicUserProfile(req, res) {
   try {
     const { userId } = req.params;
-    console.log("📡 Public profile request:", userId);
+    console.log("📱 Public profile request:", userId);
     console.log("🕵️ token?", req.body?.token);
 
     let requesterId = null;
-
     try {
       if (req.body?.token) {
         const decoded = jwt.verify(req.body.token, process.env.JWT_SECRET || "test");
         requesterId = decoded.userId;
+        console.log("✅ Decoded requesterId:", requesterId);
       }
     } catch (err) {
       console.warn("⚠️ Token verification failed, continuing as anonymous:", err.message);
@@ -33,6 +33,7 @@ export async function getPublicUserProfile(req, res) {
     const user = await db.collection("users").findOne({ googleId: userId }, { projection });
 
     if (!user) {
+      console.warn("❌ User not found:", userId);
       return res.status(404).json({ message: "User not found" });
     }
 
@@ -43,6 +44,7 @@ export async function getPublicUserProfile(req, res) {
   }
 }
 
+// 🔐 OAuth Callback Handler
 export async function handleOAuthCallback(req, res) {
   console.log("🚀 Reached /google/oauth/callback");
 
@@ -51,6 +53,7 @@ export async function handleOAuthCallback(req, res) {
 
   try {
     const HOST = process.env.HOST || "PRODUCTION";
+
     let REDIRECT_URI = "";
     let clientRedirectBase = "";
 
@@ -79,14 +82,13 @@ export async function handleOAuthCallback(req, res) {
 
     const tokens = tokenResponse.data;
 
-    const profileResponse = await axios.get(
-      "https://openidconnect.googleapis.com/v1/userinfo",
-      { headers: { Authorization: `Bearer ${tokens.access_token}` } }
-    );
+    const profileResponse = await axios.get("https://openidconnect.googleapis.com/v1/userinfo", {
+      headers: { Authorization: `Bearer ${tokens.access_token}` },
+    });
 
     const profile = profileResponse.data;
-    const usersCollection = db.collection("users");
 
+    const usersCollection = db.collection("users");
     let user = await usersCollection.findOne({ email: profile.email });
 
     if (!user) {
@@ -102,31 +104,7 @@ export async function handleOAuthCallback(req, res) {
       user = { ...newUser, _id: result.insertedId };
     }
 
-    const dbUser = await usersCollection.findOne(
-      { googleId: user.googleId },
-      { projection: { unanswered: 1 } }
-    );
-
-    const JWT_SECRET = process.env.JWT_SECRET || "test";
-
-    const accessToken = jwt.sign(
-      {
-        userId: user.googleId,
-        email: user.email,
-        name: user.name,
-        picture: user.picture,
-        status: user.status,
-        unanswered: dbUser?.unanswered || [],
-      },
-      JWT_SECRET,
-      { expiresIn: "15m" }
-    );
-
-    const refreshToken = jwt.sign(
-      { userId: user.googleId, email: user.email },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
+    const unansweredCount = Array.isArray(user.unanswered) ? user.unanswered.length : 0;
 
     const userData = {
       userId: user.googleId,
@@ -134,80 +112,36 @@ export async function handleOAuthCallback(req, res) {
       name: user.name,
       picture: user.picture,
       status: user.status,
-      unanswered: dbUser?.unanswered || [],
+      unansweredCount,
     };
 
-    const redirectUrl = `${clientRedirectBase}/popup?access_token=${encodeURIComponent(
-      accessToken
-    )}&refresh_token=${encodeURIComponent(refreshToken)}&user_data=${encodeURIComponent(
-      JSON.stringify(userData)
-    )}`;
+    const JWT_SECRET = process.env.JWT_SECRET || "test";
 
+    const accessToken = jwt.sign(userData, JWT_SECRET, { expiresIn: "15m" });
+    const refreshToken = jwt.sign({ userId: user.googleId, email: user.email }, JWT_SECRET, {
+      expiresIn: "7d",
+    });
+
+    const redirectUrl = `${clientRedirectBase}/popup?access_token=${accessToken}&refresh_token=${refreshToken}`;
     console.log("✅ Redirecting to:", redirectUrl);
     res.redirect(redirectUrl);
   } catch (error) {
     console.error("❌ OAuth callback failed:", error.response?.data || error.message);
-    res.status(500).json({
-      message: "Authentication failed",
-      error: error.response?.data || error.message,
-    });
+    res.status(500).json({ message: "Authentication failed", error: error.response?.data || error.message });
   }
 }
 
-// 🔐 Get user from access token
-export async function getUserData(req, res) {
-  const { accessToken } = req.body;
-
-  if (!accessToken) {
-    return res.status(401).json({ message: "Access token is required" });
-  }
-
-  try {
-    const user = jwt.verify(accessToken, process.env.JWT_SECRET || "test");
-
-    const dbUser = await db.collection("users").findOne(
-      { googleId: user.userId },
-      { projection: { unanswered: 1 } }
-    );
-
-    res.json({
-      id: user.userId,
-      name: user.name,
-      email: user.email,
-      picture: user.picture,
-      status: user.status,
-      unanswered: dbUser?.unanswered || [],
-    });
-  } catch (err) {
-    console.error("Token verification failed:", err);
-    res.status(401).json({ message: "Invalid token" });
-  }
-}
-
-// 🔒 Logout
-export function logoutUser(req, res) {
-  res.clearCookie("access_token", { httpOnly: true, sameSite: "None", secure: true });
-  res.clearCookie("refresh_token", { httpOnly: true, sameSite: "None", secure: true });
-  res.clearCookie("user_data", { httpOnly: false, sameSite: "Lax", secure: true });
-  res.status(200).json({ message: "Logged out successfully" });
-}
-
-// 🔁 Refresh token controller for Express backend
+// 🔄 Refresh Token Handler
 export async function refreshToken(req, res) {
   console.log("🔥 /google/refresh HIT");
-  console.log("🔥 req.body is:", req.body);
+  console.log("🔥 Request body:", req.body);
 
   try {
     const JWT_SECRET = process.env.JWT_SECRET || "test";
-
     const token = req.body?.refreshToken || req.body?.token;
-    const rawUserData = req.body?.user_data;
-
-    console.log("🪪 Extracted token:", token);
-    console.log("📦 Raw user_data:", rawUserData);
 
     if (!token) {
-      console.warn("🚫 No token received in request");
+      console.warn("❌ No refresh token provided");
       return res.status(401).json({ message: "No refresh token provided" });
     }
 
@@ -229,24 +163,10 @@ export async function refreshToken(req, res) {
     );
 
     if (!user) {
-      console.warn("❌ No user found with googleId:", decoded.userId);
       return res.status(404).json({ message: "User not found" });
     }
 
-    // ✅ Accept either plain object or encoded string
-    let clientUser = {};
-    if (rawUserData) {
-      try {
-        if (typeof rawUserData === "string") {
-          clientUser = JSON.parse(decodeURIComponent(rawUserData));
-        } else {
-          clientUser = rawUserData;
-        }
-        console.log("🧾 Parsed user_data from client:", clientUser);
-      } catch (err) {
-        console.warn("⚠️ Failed to parse user_data. Ignoring:", err.message);
-      }
-    }
+    const unansweredCount = Array.isArray(user.unanswered) ? user.unanswered.length : 0;
 
     const userData = {
       userId: user.googleId,
@@ -254,24 +174,52 @@ export async function refreshToken(req, res) {
       name: user.name,
       picture: user.picture,
       status: user.status,
-      unanswered: user.unanswered || [],
+      unansweredCount,
     };
 
     const newAccessToken = jwt.sign(userData, JWT_SECRET, { expiresIn: "15m" });
 
     console.log("✅ Returning refreshed token and user data");
-
-    return res.status(200).json({
-      accessToken: newAccessToken,
-      userData,
-    });
+    return res.status(200).json({ accessToken: newAccessToken, userData });
   } catch (error) {
     console.error("❌ Error in /google/refresh:", error.message);
-
-    res.clearCookie("access_token");
-    res.clearCookie("refresh_token");
-    res.clearCookie("user_data");
-
     return res.status(401).json({ message: "Invalid or expired refresh token" });
   }
+}
+
+// 🔍 Decode Access Token to Get User Data
+export async function getUserData(req, res) {
+  const { accessToken } = req.body;
+
+  if (!accessToken) {
+    return res.status(401).json({ message: "Access token is required" });
+  }
+
+  try {
+    const user = jwt.verify(accessToken, process.env.JWT_SECRET || "test");
+
+    const dbUser = await db.collection("users").findOne(
+      { googleId: user.userId },
+      { projection: { unanswered: 1 } }
+    );
+
+    const unansweredCount = Array.isArray(dbUser?.unanswered) ? dbUser.unanswered.length : 0;
+
+    return res.json({
+      userId: user.userId,
+      email: user.email,
+      name: user.name,
+      picture: user.picture,
+      status: user.status,
+      unansweredCount,
+    });
+  } catch (err) {
+    console.error("❌ Token verification failed:", err);
+    return res.status(401).json({ message: "Invalid token" });
+  }
+}
+
+// 🔓 Logout
+export function logoutUser(req, res) {
+  return res.status(200).json({ message: "Logged out successfully" });
 }
